@@ -12,7 +12,8 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 ## What Doesn't Work
 
 ## Codebase Patterns
-- 2026-10-07 — Shared components in `src/components/*` take strings from the `common` namespace → feature tests that render them must pass `common` to `NextIntlClientProvider` alongside their own namespace, or next-intl throws on the missing key (src/components/run-cost-badge/RunCostBadge.tsx).
+- 2026-10-07 — Shared components in `src/components/*` take strings from the `common` namespace → feature tests that render them must pass `common` to `NextIntlClientProvider` alongside their own namespace, or next-intl throws on the missing key [supersedes the same entry without file:line] (client/src/components/run-cost-badge/RunCostBadge.tsx:23)
+- 2026-10-07 — The PR list table card has `overflow: hidden` → popovers inside rows must render through a portal with fixed positioning or they get clipped [supersedes the same entry without file:line] (client/src/app/repos/[repoId]/pulls/styles.ts:90, client/src/components/severity-counts/FindingsPopover.tsx:89)
 
 ## Tool & Library Notes
 

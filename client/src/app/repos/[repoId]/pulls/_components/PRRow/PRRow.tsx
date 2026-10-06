@@ -7,6 +7,9 @@ import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import type { PrMeta } from "@/lib/types";
 import { RunCostBadge } from "@/components/run-cost-badge";
+import { FindingsSeverity } from "@/components/severity-counts";
+import { usePrReviews } from "@/lib/hooks/reviews";
+import { latestReviewPerAgent } from "@/lib/findings";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
 import { s } from "../../styles";
@@ -55,6 +58,9 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         )}
       </div>
       <div>
+        <PrFindings pr={pr} />
+      </div>
+      <div>
         <Badge dot color={st.c} bg="transparent">
           {t(`list.status.${st.labelKey}`)}
         </Badge>
@@ -64,5 +70,19 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
       </div>
       <div style={s.updatedCell}>{relativeTime(pr.updated_at)}</div>
     </div>
+  );
+}
+
+/** FINDINGS cell: counts come with the list; the findings themselves load only
+   once a counter is clicked (shared ["reviews", prId] cache with PR detail). */
+function PrFindings({ pr }: { pr: PrMeta }) {
+  const [open, setOpen] = React.useState(false);
+  const { data: reviews, isLoading } = usePrReviews(open ? pr.id : null);
+  const findings = React.useMemo(
+    () => (reviews ? latestReviewPerAgent(reviews).flatMap((r) => r.findings) : undefined),
+    [reviews],
+  );
+  return (
+    <FindingsSeverity counts={pr.findings} findings={findings} loading={isLoading} onOpenChange={setOpen} />
   );
 }

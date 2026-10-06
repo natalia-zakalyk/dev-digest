@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Append-only writer for INSIGHTS.md: inserts one line at the end of a section and
 // verifies that every pre-existing line is still present, unchanged and in order.
-// Usage: node append-insight.mjs <INSIGHTS.md path> "<Section>" "- YYYY-MM-DD — <what> → <why> (<ref>)"
+// Usage: node append-insight.mjs <INSIGHTS.md path> "<Section>" "- YYYY-MM-DD — <what> → <why> (<file>:<line>)"
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 
 const SECTIONS = [
@@ -17,6 +17,10 @@ if (!existsSync(file)) fail(`${file} does not exist — will not create it (no b
 if (!SECTIONS.includes(section)) fail(`unknown section "${section}". Use one of: ${SECTIONS.join(' | ')}`);
 if (entry.includes('\n')) fail('entry must be a single line');
 if (!/^- \d{4}-\d{2}-\d{2} — \S.*$/.test(entry)) fail('entry must look like "- YYYY-MM-DD — <what> → <why> (<ref>)"');
+// Evidence: the trailing (…) must cite at least one file:line, e.g. (server/src/x.ts:42) or (a.ts:10-12, 1a2b3c4).
+if (!/\([^()]*[\w.\/\[\]-]+\.\w+:\d+[^()]*\)\.?$/.test(entry)) {
+  fail('entry must end with evidence "(<file>:<line>)" — e.g. (server/src/modules/pulls/status.ts:42); a commit hash alone is not enough');
+}
 
 const original = readFileSync(file, 'utf8');
 const before = original.split('\n');

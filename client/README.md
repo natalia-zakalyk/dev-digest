@@ -40,6 +40,12 @@ Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
 `g`-then-key shortcuts). Pages are thin; feature logic sits in colocated
 `_components/<Name>/` folders, each with its own `*.test.tsx`.
 
+Review signals shown across pages (specs in [`specs/`](specs/)):
+- **Cost** — `RunCostBadge` on the PR list, timeline and trace drawer ([run-cost-badge](specs/run-cost-badge.md)).
+- **Findings by severity** — FINDINGS column with a hover popover on the PR list, read-only icons on
+  the Agent runs timeline, and severity pills + Critical/Warning/Suggestion filters in each Review
+  runs card ([findings-severity](specs/findings-severity.md)).
+
 ## Testing
 
 Component/interaction tests (`*.test.tsx`) run under vitest + jsdom with `fetch`

@@ -27,6 +27,23 @@ Server: Fastify 5 + Drizzle 0.38. Client: Next.js 15 (App Router) + React 19 + T
 - Zod contracts in `@devdigest/shared` are the single source of request/response types.
 - Lessons add features as new `server/src/modules/<name>/` plugins; DB schema already has every table.
 
+## Naming conventions
+- **Files & folders:** `kebab-case.ts` for modules/helpers (`format-cost.ts`, `run-executor.ts`,
+  `diff-loader.ts`); server repositories `<entity>.repo.ts`. React components: `PascalCase/` folder
+  with `PascalCase.tsx` + `index.ts` barrel (`FindingCard/FindingCard.tsx`); shared ones live in a
+  `kebab-case/` folder under `client/src/components/` (`run-cost-badge/RunCostBadge.tsx`).
+- **Next.js routes:** `page.tsx` / `layout.tsx`, params as `[repoId]`; route-private components in `_components/`.
+- **Tests:** colocated `<Name>.test.tsx` (client) · `server/test/<topic>.test.ts` (hermetic) ·
+  `<topic>.it.test.ts` (needs Postgres) · e2e flows `NN-name.flow.json`.
+- **Code:** React components & Zod schemas `PascalCase` with a same-name type
+  (`export const PrMeta = z.object(…)` + `export type PrMeta`); hooks `useXxx` in `client/src/lib/hooks/*`;
+  functions/vars `camelCase`; constants `UPPER_SNAKE` (`STALE_DAYS`, `COLUMN_KEYS`).
+- **Data:** DB tables/columns `snake_case` (`agent_runs.cost_usd`), Drizzle fields `camelCase` (`costUsd`);
+  API/contract fields `snake_case` (`cost_usd`, `findings_count`).
+- **i18n:** one namespace per feature file (`messages/en/prReview.json`), keys `camelCase`;
+  shared-component strings in `common`.
+- **Docs:** specs `<module>/specs/<feature-kebab>.md`, docs `<module>/docs/<topic-kebab>.md`.
+
 ## Gotchas
 - `@devdigest/shared` exists in **two copies**: `server/src/vendor/shared` (canonical, also used by
   reviewer-core) and `client/src/vendor/shared`. They have already drifted — when changing a
@@ -36,6 +53,9 @@ Server: Fastify 5 + Drizzle 0.38. Client: Next.js 15 (App Router) + React 19 + T
 
 ## Do not touch
 - `server/src/db/migrations/*` — never edit applied migrations; generate a new one.
+- Lock files — `server/pnpm-lock.yaml`, `client/pnpm-lock.yaml`, `reviewer-core/package-lock.json`,
+  `e2e/package-lock.json`: never edit by hand; they change only via the package manager
+  (`pnpm add/remove` / `npm install <pkg>`) when a dependency change was asked for.
 - `server/clones/` — user's imported repo checkouts (git-ignored).
 - `docker compose down -v` — wipes the dev DB volume with real data. Never run it.
 - `.env`, `~/.devdigest/secrets.json` — never read out or commit secrets.

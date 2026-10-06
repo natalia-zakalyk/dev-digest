@@ -2,11 +2,14 @@
 
 Next.js 15 (App Router) + React 19 + TanStack Query 5 + Tailwind 4 + next-intl 3, port 3000. Package manager: **pnpm**.
 
-## Docs — read when relevant
-- [README.md](README.md) — UI route map and which API endpoints each page uses.
-- [docs/](docs/) — deeper UI/architecture notes.
-- [specs/](specs/) — feature specs. **Find the spec before implementing a feature.**
-- [../TESTING.md](../TESTING.md) — test philosophy.
+## Read When
+- [README.md](README.md) — when you need the route map at a glance or which API endpoints a page hits.
+- [docs/ui-architecture.md](docs/ui-architecture.md) — before adding a page, hook, provider or shared component (server/client boundary, query keys, error→toast policy, SSE, styling, i18n).
+- [specs/pages.md](specs/pages.md) — before changing a route's query params, data, UI states or interactions.
+- [specs/run-cost-badge.md](specs/run-cost-badge.md) — before touching cost display (PR list COST, run timeline, trace stats) or `src/lib/format-cost.ts`.
+- [specs/findings-severity.md](specs/findings-severity.md) — before touching severity counters, the findings popover or Review-run pills/filters.
+- [../TESTING.md](../TESTING.md) — before writing or restructuring tests.
+- New feature with no spec in [specs/](specs/) → propose one first.
 
 ## Commands
 - `pnpm dev` · `pnpm typecheck` · `pnpm test` (vitest + jsdom, fetch mocked — no API needed)

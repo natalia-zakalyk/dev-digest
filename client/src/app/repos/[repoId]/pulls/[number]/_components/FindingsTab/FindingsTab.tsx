@@ -67,6 +67,13 @@ export function FindingsTab({
   // opens + scrolls to that run's accordion below. The nonce re-triggers the
   // scroll even when the same run is clicked twice.
   const [target, setTarget] = React.useState<{ runId: string; n: number } | null>(null);
+
+  // Timeline severity counters: each run's findings via the review it produced.
+  const findingsByRun = React.useMemo(() => {
+    const m = new Map<string, FindingRecord[]>();
+    for (const review of runs) if (review.run_id) m.set(review.run_id, review.findings);
+    return m;
+  }, [runs]);
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
@@ -132,6 +139,7 @@ export function FindingsTab({
             runs={prRuns ?? []}
             commits={prCommits}
             onOpenTrace={handleOpenTrace}
+            findingsByRun={findingsByRun}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
           />

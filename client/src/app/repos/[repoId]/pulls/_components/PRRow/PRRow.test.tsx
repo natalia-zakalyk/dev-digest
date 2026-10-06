@@ -1,12 +1,14 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PrMeta } from "@/lib/types";
 import prReview from "../../../../../../../messages/en/prReview.json";
 import common from "../../../../../../../messages/en/common.json";
 import { PRRow } from "./PRRow";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 afterEach(cleanup);
 
@@ -33,9 +35,11 @@ function pr(o: Partial<PrMeta>): PrMeta {
 
 function renderRow(p: PrMeta) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview, common }}>
-      <PRRow pr={p} repoId="repo-1" />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <NextIntlClientProvider locale="en" messages={{ prReview, common }}>
+        <PRRow pr={p} repoId="repo-1" />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -47,8 +51,36 @@ describe("PRRow — COST cell", () => {
 
   it("shows — when the PR has no known cost", () => {
     // Reviewed PR with a date, so the COST cell is the only "—" in the row.
-    renderRow(pr({ score: 61, updated_at: new Date().toISOString(), cost_usd: null }));
+    renderRow(
+      pr({
+        score: 61,
+        updated_at: new Date().toISOString(),
+        cost_usd: null,
+        findings: { critical: 1, warning: 0, suggestion: 0 },
+      }),
+    );
     expect(screen.getAllByText("—")).toHaveLength(1);
     expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+  });
+});
+
+describe("PRRow — FINDINGS cell", () => {
+  it("shows a counter per non-zero severity", () => {
+    renderRow(pr({ findings: { critical: 2, warning: 0, suggestion: 3 } }));
+    expect(screen.getByRole("button", { name: "2 critical findings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "3 suggestions" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /warning/ })).not.toBeInTheDocument();
+  });
+
+  it("hovering a counter loads the findings tooltip; tapping it does not open the PR", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {}))); // keep the lazy load pending
+    push.mockClear();
+    renderRow(pr({ findings: { critical: 2, warning: 0, suggestion: 0 } }));
+    const counter = screen.getByRole("button", { name: "2 critical findings" });
+    fireEvent.mouseEnter(counter);
+    expect(screen.getByRole("tooltip", { name: "Findings" })).toHaveTextContent("Loading findings…");
+    fireEvent.click(counter);
+    expect(push).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

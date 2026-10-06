@@ -215,6 +215,11 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
     expect(runs[0].cost_usd).toBe(run!.costUsd);
 
+    // PR list FINDINGS column: the grounded review's single CRITICAL.
+    const list = (await app.inject({ method: 'GET', url: `/repos/${pr.repoId}/pulls` })).json();
+    const row = list.find((p: { id: string }) => p.id === pr.id);
+    expect(row.findings).toEqual({ critical: 1, warning: 0, suggestion: 0 });
+
     await app.close();
   });
 

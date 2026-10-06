@@ -33,8 +33,9 @@ lost (only completed chunks are counted). A 429/quota error consumes no tokens.
 - `GET /pulls/:id/runs` → `RunSummary.cost_usd: number | null`
 - `GET /runs/:id/trace` → `RunTrace.stats.cost_usd?: number | null`
 - `GET /repos/:id/pulls` → `PrMeta.cost_usd?: number | null` (list endpoint only) =
-  **sum over the latest finished run of each agent** on the PR. `running` runs are skipped (that
-  agent's previous finished run counts). Null costs are ignored in the sum; all null / no runs → `null`.
+  **sum of the cost of every successful (`done`) run** on the PR, reruns included. `running`,
+  `failed` and `cancelled` runs are left out (their partial cost still shows on the run itself).
+  Null costs are ignored in the sum; no successful priced run → `null` (UI renders `—`).
 
 ## Acceptance criteria
 - Every finished run exposes its cost; a run with no data exposes `null` (UI renders `—`).

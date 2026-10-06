@@ -2,11 +2,12 @@
 
 Pure review engine: diff → prompt → LLM → grounded findings. TypeScript 5.7 + Zod 3.24 + openai SDK 4. Package manager: **npm**.
 
-## Docs — read when relevant
-- [README.md](README.md) — pipeline diagram and public API.
-- [docs/](docs/) — deeper engine notes.
-- [specs/](specs/) — feature specs. **Find the spec before implementing a feature.**
-- Server-side caller: `../server/src/modules/reviews/run-executor.ts`.
+## Read When
+- [docs/pipeline.md](docs/pipeline.md) — before changing orchestration (single-pass / map-reduce), prompt assembly, LLM calls, structured output, grounding, scoring or usage/cost reporting.
+- [specs/review-engine.md](specs/review-engine.md) — before changing the public API (`src/index.ts`) or any invariant; check its test-coverage table when adding tests. **Find/extend a spec in `specs/` before implementing a feature.**
+- [README.md](README.md) — first orientation: pipeline diagram and what the package is for.
+- [../TESTING.md](../TESTING.md) — before writing or restructuring tests (hermetic, stubbed `LLMProvider`).
+- Server-side caller: `../server/src/modules/reviews/run-executor.ts` — before changing anything it passes or reads.
 
 ## Commands
 - `npm test` · `npm run typecheck` (`build` is also only a type-check — the package never emits JS)

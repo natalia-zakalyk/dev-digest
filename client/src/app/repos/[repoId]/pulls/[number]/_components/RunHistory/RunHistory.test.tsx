@@ -7,7 +7,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { RunSummary, FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import common from "../../../../../../../../messages/en/common.json";
 import { RunHistory } from "./RunHistory";
@@ -36,10 +36,10 @@ function run(o: Partial<RunSummary>): RunSummary {
   };
 }
 
-function renderRuns(runs: RunSummary[]) {
+function renderRuns(runs: RunSummary[], findingsByRun?: Map<string, FindingRecord[]>) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ prReview: messages, common }}>
-      <RunHistory runs={runs} onOpenTrace={() => {}} />
+      <RunHistory runs={runs} findingsByRun={findingsByRun} onOpenTrace={() => {}} />
     </NextIntlClientProvider>,
   );
 }
@@ -90,5 +90,26 @@ describe("RunHistory — run cost", () => {
   it("a running run shows no cost (no fake price)", () => {
     renderRuns([run({ status: "running", tokens_in: null, tokens_out: null, cost_usd: null })]);
     expect(screen.queryByText(/tok ·/)).not.toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — findings by severity", () => {
+  const finding = (id: string, severity: string) =>
+    ({ id, severity, title: `Finding ${id}`, category: "bug", file: "src/a.ts", start_line: 1, end_line: 1, confidence: 0.9, rationale: "why" }) as FindingRecord;
+
+  it("a finished run shows severity counters and keeps the blockers", () => {
+    const fs = [finding("1", "CRITICAL"), finding("2", "CRITICAL"), finding("3", "WARNING")];
+    renderRuns([run({ findings_count: 3, blockers: 2, score: 38 })], new Map([["run-1", fs]]));
+    expect(screen.getByRole("img", { name: "2 critical findings" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 warning" })).toBeInTheDocument();
+    // Read-only: no clickable counters and no tooltip on the timeline.
+    expect(screen.queryByRole("button", { name: /critical|warning/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
+    expect(screen.queryByText(/finding\(s\)/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the plain count when the run's review isn't loaded", () => {
+    renderRuns([run({ findings_count: 3, blockers: 0, score: 72 })], new Map());
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
   });
 });

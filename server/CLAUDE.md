@@ -2,11 +2,15 @@
 
 Fastify 5 API + Drizzle ORM 0.38 over Postgres (pgvector), port 3001. Package manager: **pnpm**.
 
-## Docs — read when relevant
-- [README.md](README.md) — request & DI flow, API map, env vars, review context. Read before touching routes, DI or the reviewer.
-- [docs/](docs/) — deeper module/architecture notes.
-- [specs/](specs/) — feature specs. **Find the spec before implementing a feature.**
-- [../TESTING.md](../TESTING.md) — test philosophy.
+## Read When
+- [README.md](README.md) — first look at the package: API map, env vars, review-context overview.
+- [docs/architecture.md](docs/architecture.md) — before touching boot (`app.ts`/`server.ts`), config, DI container, adapters/mocks, error handling, the DB layer, or adding a module.
+- [specs/review-flow.md](specs/review-flow.md) — before changing anything in the review/run pipeline (`modules/reviews/`, run executor, RunBus/SSE) or its endpoints.
+- [specs/run-cost-badge.md](specs/run-cost-badge.md) — before changing tokens/`cost_usd` on `agent_runs`, run traces or pricing.
+- [specs/findings-severity.md](specs/findings-severity.md) — before changing PR-list severity rollups (`modules/pulls/status.ts`).
+- [src/modules/repo-intel/README.md](src/modules/repo-intel/README.md) — before touching indexing or the `repoIntel.*` facade.
+- [../TESTING.md](../TESTING.md) — before writing or reorganising tests (unit vs `*.it.test.ts`).
+- New feature without a spec in [specs/](specs/) → propose one first.
 
 ## Commands
 - `pnpm dev` · `pnpm typecheck` · `pnpm test` (unit + integration)

@@ -12,15 +12,15 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 ## What Doesn't Work
 
 ## Codebase Patterns
-- 2026-10-06 — Course material says `LEARNINGS.md` in `apps/*`/`packages/*` → here it is `<module>/INSIGHTS.md` in `server/`, `client/`, `reviewer-core/`, `e2e/` (repo-intel lives in `server/src`) (CLAUDE.md).
+- 2026-10-07 — Course material says `LEARNINGS.md` in `apps/*`/`packages/*` → here it is `<module>/INSIGHTS.md` in `server/`, `client/`, `reviewer-core/`, `e2e/` (repo-intel lives in `server/src`) [supersedes the same entry without file:line] (CLAUDE.md:64)
 
 ## Tool & Library Notes
-- 2026-10-06 — A module's CLAUDE.md (and its `@INSIGHTS.md`) loads only after Claude touches files in that folder, not at session start from the root → read `<module>/INSIGHTS.md` explicitly before answering (CLAUDE.md, Documentation loop step 0).
-- 2026-10-06 — Once `engineering-insights` is invoked, its PreToolUse hook blocks Write/Edit on every `INSIGHTS*.md` for the rest of the session → do the monthly prune by hand or in a session where the skill wasn't invoked (.claude/skills/engineering-insights/SKILL.md).
+- 2026-10-07 — A module's CLAUDE.md (and its `@INSIGHTS.md`) loads only after Claude touches files in that folder, not at session start from the root → read `<module>/INSIGHTS.md` explicitly before answering [supersedes the same entry without file:line] (CLAUDE.md:65)
+- 2026-10-07 — Once `engineering-insights` is invoked, its PreToolUse hook blocks Write/Edit on every `INSIGHTS*.md` for the rest of the session → do the monthly prune by hand or in a session where the skill wasn't invoked [supersedes the same entry without file:line] (.claude/skills/engineering-insights/SKILL.md:6)
 
 ## Recurring Errors & Fixes
 
 ## Session Notes
-- 2026-10-06 — Added `engineering-insights` skill + 7-section INSIGHTS.md template in every module and root; no Stop hook yet (planned for L06), so capture relies on skill auto-trigger + CLAUDE.md rule (.claude/skills/engineering-insights/SKILL.md).
+- 2026-10-07 — `engineering-insights` capture is now enforced by a project Stop hook (once per session, only with uncommitted changes) and append-insight.mjs refuses entries without file:line; the 2026-10-06 "no Stop hook yet" note is obsolete [supersedes the same entry without file:line] (.claude/settings.json:3, .claude/skills/engineering-insights/scripts/stop-insights-check.mjs:1)
 
 ## Open Questions
