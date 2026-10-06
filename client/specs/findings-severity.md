@@ -5,8 +5,9 @@ Status: implemented · Lab L01 · Data/API: [server/specs/findings-severity.md](
 ## Where it shows (3 places)
 1. **Pull Requests list** — `FINDINGS` column between SCORE and STATUS
    (value = `PrMeta.findings`, latest review of each agent). Hover → popover "N FINDINGS IN THIS RUN".
-2. **PR Detail → Agent runs → Timeline** — on a finished run row, **read-only** severity icons
-   replace the text "N finding(s)" (no click, no tooltip); "· N blockers" stays next to them
+2. **PR Detail → Agent runs → Timeline** — on a finished run row, severity icons replace the text
+   "N finding(s)"; "· N blockers" stays next to them. **No click**: hovering (or keyboard focus on)
+   an icon shows the same "N FINDINGS IN THIS RUN" tooltip with that level's findings; clicking does nothing
    (value = findings of the review whose `run_id` is this run). No review → the old text.
 3. **PR Detail → Agent runs → Review runs** — in an expanded run card, under the verdict and PR
    SCORE: a row of pills `N CRITICAL · N WARNING · N SUGGESTION` (only severities present), then
@@ -35,7 +36,7 @@ Status: implemented · Lab L01 · Data/API: [server/specs/findings-severity.md](
   (`src/lib/findings.ts`), including skipping agent-less (seeded) reviews once the PR has an agent review. The timeline already has the reviews loaded.
 
 ## Components
-- `src/components/severity-counts/` — `SeverityCounts` (counters; read-only icons without `onSelect`),
+- `src/components/severity-counts/` — `SeverityCounts` (counters; `hoverOnly` for the timeline),
   `FindingsPopover` (list), `FindingsSeverity` (counters + popover, owns the open state).
 - Review runs pills + filters: `FindingsPanel` (`visibleFindings(findings, hideLow, severity)`).
 - i18n: `common.findings.*` (shared component); column label `prReview.list.columns.findings`.

@@ -5,7 +5,7 @@
  * and shows the review score ring.
  */
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunSummary, FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
@@ -102,8 +102,15 @@ describe("RunHistory — findings by severity", () => {
     renderRuns([run({ findings_count: 3, blockers: 2, score: 38 })], new Map([["run-1", fs]]));
     expect(screen.getByRole("img", { name: "2 critical findings" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "1 warning" })).toBeInTheDocument();
-    // Read-only: no clickable counters and no tooltip on the timeline.
+    // No clickable counters on the timeline: clicking does nothing…
     expect(screen.queryByRole("button", { name: /critical|warning/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("img", { name: "2 critical findings" }));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    // …but hovering shows that level's findings.
+    fireEvent.mouseEnter(screen.getByRole("img", { name: "1 warning" }));
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Finding 3");
+    expect(tooltip).not.toHaveTextContent("Finding 1");
     expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
     expect(screen.queryByText(/finding\(s\)/)).not.toBeInTheDocument();
   });

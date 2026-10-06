@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
 import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/run-cost-badge";
-import { SeverityCounts } from "@/components/severity-counts";
+import { FindingsSeverity } from "@/components/severity-counts";
 import { countBySeverity } from "@/lib/findings";
 
 /**
@@ -235,7 +235,8 @@ export function RunHistory({
   );
 }
 
-/** Read-only severity icons of a finished run (+ blockers). Falls back to the plain
+/** Severity icons of a finished run (+ blockers); hovering one shows that level's
+   findings, clicking does nothing. Falls back to the plain
    "N finding(s)" text when the run's review isn't loaded. */
 function RunFindings({
   findings,
@@ -251,7 +252,7 @@ function RunFindings({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)" }}>
       {counts ? (
-        <SeverityCounts counts={counts} />
+        <FindingsSeverity counts={counts} findings={findings} hoverOnly />
       ) : (
         t("runStatus.findings", { count: findingsCount })
       )}

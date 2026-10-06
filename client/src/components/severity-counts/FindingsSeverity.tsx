@@ -1,5 +1,5 @@
 /* FindingsSeverity — severity counters + a tooltip with that severity's findings.
-   Used by the PR list FINDINGS column (the Agent runs timeline shows read-only icons).
+   Used by the PR list FINDINGS column and, hover-only (no click), by the Agent runs timeline.
    Hover or focus a counter → only that severity's findings (tap on touch screens).
    Leaving the counter closes after a short delay, so the pointer can move into
    the tooltip and scroll it. Esc, an outside click or a page scroll close it too.
@@ -20,6 +20,7 @@ export function FindingsSeverity({
   findings,
   loading,
   onOpenChange,
+  hoverOnly,
 }: {
   counts: Counts | null | undefined;
   /** All findings behind the counts; undefined while they load lazily. */
@@ -27,6 +28,8 @@ export function FindingsSeverity({
   loading?: boolean;
   /** Lets a caller fetch findings only once the tooltip is opened. */
   onOpenChange?: (open: boolean) => void;
+  /** Open on hover/focus only — clicking a counter does nothing (Agent runs timeline). */
+  hoverOnly?: boolean;
 }) {
   const [active, setActive] = React.useState<CountedSeverity | null>(null);
   const anchorRef = React.useRef<HTMLSpanElement>(null);
@@ -100,7 +103,13 @@ export function FindingsSeverity({
 
   return (
     <span ref={anchorRef} style={{ display: "inline-flex" }} onClick={(e) => e.stopPropagation()}>
-      <SeverityCounts counts={counts} active={active} onSelect={open} onLeave={scheduleClose} />
+      <SeverityCounts
+        counts={counts}
+        active={active}
+        onSelect={open}
+        onLeave={scheduleClose}
+        hoverOnly={hoverOnly}
+      />
       {active && anchorRef.current && (
         <FindingsPopover
           ref={popoverRef}

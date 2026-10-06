@@ -1,6 +1,6 @@
 /* SeverityCounts — one counter per severity (icon + number). With `onSelect`
-   the counters are buttons (hover/focus shows findings); without it they are
-   read-only icons.
+   the counters are buttons (hover/focus/tap shows findings); with `hoverOnly`
+   they show findings on hover/focus only; without `onSelect` they are plain icons.
    Zero severities are hidden; no findings at all → "—".
    Spec: client/specs/findings-severity.md. */
 "use client";
@@ -45,6 +45,7 @@ export function SeverityCounts({
   active,
   onSelect,
   onLeave,
+  hoverOnly,
 }: {
   counts: Counts | null | undefined;
   /** The severity whose findings are currently shown, if any. */
@@ -53,6 +54,8 @@ export function SeverityCounts({
   onSelect?: (severity: CountedSeverity) => void;
   /** Pointer or focus left a counter. */
   onLeave?: () => void;
+  /** Hover/focus shows findings, a click does nothing (Agent runs timeline). */
+  hoverOnly?: boolean;
 }) {
   const t = useTranslations("common");
   const shown = COUNTED_SEVERITIES.filter((sev) => (counts?.[SEVERITY_KEY[sev]] ?? 0) > 0);
@@ -64,10 +67,31 @@ export function SeverityCounts({
         const count = counts![SEVERITY_KEY[sev]];
         const I = Icon[SEV[sev].icon];
         const label = t(`findings.counter.${SEVERITY_KEY[sev]}`, { count });
-        // Read-only mode (no handlers, e.g. the Agent runs timeline): plain icons.
+        // Read-only mode (no handlers): plain icons.
         if (!onSelect) {
           return (
             <span key={sev} className="tnum" role="img" aria-label={label} title={label} style={staticCounter(SEV[sev].c)}>
+              <I size={13} />
+              {count}
+            </span>
+          );
+        }
+        // Hover-only mode: not a button — hover or keyboard focus shows the tooltip, clicks do nothing.
+        if (hoverOnly) {
+          return (
+            <span
+              key={sev}
+              className="tnum"
+              role="img"
+              tabIndex={0}
+              aria-label={label}
+              aria-expanded={active === sev}
+              onMouseEnter={() => onSelect(sev)}
+              onMouseLeave={onLeave}
+              onFocus={() => onSelect(sev)}
+              onBlur={onLeave}
+              style={{ ...counter(SEV[sev].c, active === sev), cursor: "default" }}
+            >
               <I size={13} />
               {count}
             </span>
