@@ -1,4 +1,4 @@
-import type { PrStatus } from '@devdigest/shared';
+import type { PrStatus, SeverityCounts } from '@devdigest/shared';
 
 /**
  * PR-list rollup helpers (pure — no DB / `this`, so they unit-test cleanly).
@@ -13,12 +13,6 @@ import type { PrStatus } from '@devdigest/shared';
 /** Open PRs whose current head was reviewed but untouched this long read "stale". */
 export const STALE_DAYS = 7;
 
-export interface SeverityCounts {
-  critical: number;
-  warning: number;
-  suggestion: number;
-}
-
 /** Tally finding severities (CRITICAL / WARNING / SUGGESTION) for one review. */
 export function rollupSeverities(rows: { severity: string }[]): SeverityCounts {
   const c: SeverityCounts = { critical: 0, warning: 0, suggestion: 0 };
@@ -28,6 +22,33 @@ export function rollupSeverities(rows: { severity: string }[]): SeverityCounts {
     else if (r.severity === 'SUGGESTION') c.suggestion += 1;
   }
   return c;
+}
+
+export interface ReviewRow {
+  id: string;
+  prId: string;
+  agentId: string | null;
+}
+
+/**
+ * PR-list FINDINGS: which reviews count — the latest review of each agent per PR
+ * (same rule as COST: a rerun replaces that agent's previous findings, different
+ * agents add up). Agent-less reviews (seeded demo data) count only on PRs that
+ * have no agent review yet — otherwise they'd show findings no timeline run has.
+ * `rows` must be newest-first and `kind = 'review'` only.
+ */
+export function latestReviewPerAgent(rows: ReviewRow[]): ReviewRow[] {
+  const withAgent = new Set(rows.filter((r) => r.agentId != null).map((r) => r.prId));
+  const seen = new Set<string>();
+  const latest: ReviewRow[] = [];
+  for (const r of rows) {
+    if (r.agentId == null && withAgent.has(r.prId)) continue;
+    const key = `${r.prId}:${r.agentId ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    latest.push(r);
+  }
+  return latest;
 }
 
 /**
@@ -52,4 +73,25 @@ export function deriveReviewStatus(args: {
   const staleMs = (args.staleDays ?? STALE_DAYS) * 86_400_000;
   if (updatedAt && now - updatedAt.getTime() > staleMs) return 'stale';
   return 'reviewed';
+}
+
+export interface RunCostRow {
+  prId: string | null;
+  agentId: string | null;
+  status: string | null;
+  costUsd: number | null;
+}
+
+/**
+ * PR-list COST: per PR, the sum of the cost of every SUCCESSFUL (`done`) run.
+ * Running, failed and cancelled runs are left out, as are unknown (null) costs;
+ * a PR with no successful priced run is absent from the map (→ null, rendered "—").
+ */
+export function rollupCostPerPr(rows: RunCostRow[]): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.prId || r.status !== 'done' || r.costUsd == null) continue;
+    totals.set(r.prId, (totals.get(r.prId) ?? 0) + r.costUsd);
+  }
+  return totals;
 }

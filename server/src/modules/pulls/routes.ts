@@ -7,7 +7,8 @@ import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus } from './status.js';
+import { deriveReviewStatus, latestReviewPerAgent, rollupCostPerPr, rollupSeverities } from './status.js';
+import type { SeverityCounts } from '@devdigest/shared';
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -111,15 +112,16 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // Latest-review SCORE per PR for the list's score ring, and the per-severity
+    // FINDINGS of the latest review of each agent (see latestReviewPerAgent).
+    // Computed on read from reviews (no FK denorm); the list is small, so two
+    // IN-queries + JS grouping are cheap.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
+    const findingsByPr = new Map<string, SeverityCounts>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({ id: t.reviews.id, prId: t.reviews.prId, agentId: t.reviews.agentId, score: t.reviews.score })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
@@ -127,6 +129,35 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
       }
+
+      const counted = latestReviewPerAgent(reviewRows);
+      if (counted.length > 0) {
+        const prByReview = new Map(counted.map((rv) => [rv.id, rv.prId]));
+        const findingRows = await container.db
+          .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
+          .from(t.findings)
+          .where(inArray(t.findings.reviewId, [...prByReview.keys()]));
+        const severitiesByPr = new Map<string, { severity: string }[]>();
+        for (const rv of counted) severitiesByPr.set(rv.prId, []);
+        for (const f of findingRows) severitiesByPr.get(prByReview.get(f.reviewId)!)!.push(f);
+        for (const [prId, fs] of severitiesByPr) findingsByPr.set(prId, rollupSeverities(fs));
+      }
+    }
+
+    // COST per PR = sum over every successful (done) run (see rollupCostPerPr).
+    let costByPr = new Map<string, number>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          agentId: t.agentRuns.agentId,
+          status: t.agentRuns.status,
+          costUsd: t.agentRuns.costUsd,
+        })
+        .from(t.agentRuns)
+        .where(inArray(t.agentRuns.prId, prIds))
+        .orderBy(desc(t.agentRuns.ranAt));
+      costByPr = rollupCostPerPr(runRows);
     }
 
     const now = Date.now();
@@ -153,6 +184,8 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        cost_usd: costByPr.get(r.id) ?? null,
+        findings: findingsByPr.get(r.id) ?? null,
       };
     });
   });

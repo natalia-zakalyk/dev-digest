@@ -30,7 +30,7 @@ model. `review/run.ts` orchestrates the run (single-pass by default).
 
 The engine also accepts optional prompt slots the **course lessons** start
 feeding it — `skills` (L02), `memory` (L07), `specs` (L05), `callers` — plus a
-`reduce()`/map-reduce path and a `toReview()` CI payload helper used from L06.
+`reduceReviews()`/map-reduce path and a `toReviewPayload()` CI payload helper used from L06.
 In the starter the server passes only the diff, system prompt, and repo map; the
 extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
 
@@ -38,8 +38,10 @@ extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
 
 Exported from `src/index.ts`: `assemblePrompt` / `wrapUntrusted` (prompt),
 `groundFindings` / `groundingSummary` (grounding), `toJsonSchema` / `extractJson`
-/ `parseWithRepair` (structured output), plus the `run` entrypoint and
-`reduce`. Contracts (`Review`, `Finding`, `Verdict`, …) come from
+/ `parseWithRepair` (structured output), the `reviewPullRequest` entrypoint,
+`reduceReviews` / `sliceDiff` (map-reduce), `toReviewPayload` / `gateTriggered` /
+`countBlockers` (CI output) and `OpenRouterProvider`. Full contract:
+[specs/review-engine.md](specs/review-engine.md). Contracts (`Review`, `Finding`, `Verdict`, …) come from
 `@devdigest/shared`.
 
 ## Testing

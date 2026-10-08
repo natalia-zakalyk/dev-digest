@@ -1,0 +1,24 @@
+# Insights — client
+
+Non-obvious learnings, written by the `engineering-insights` skill (see `.claude/skills/engineering-insights/`).
+Format: `- YYYY-MM-DD — <what> → <what to do / why> (<file:line | commit>)`. Append-only.
+This is a draft under human review: spot-check new lines; once a month prune stale entries and resolve
+contradictions. Past ~200 entries, split into domain files (`INSIGHTS-<domain>.md`).
+Versioned in git: the history shows how knowledge evolved; revert a bad wrap-up with git.
+Imported into CLAUDE.md, so it is loaded every session here — signal over volume.
+
+## What Works
+
+## What Doesn't Work
+
+## Codebase Patterns
+- 2026-10-07 — Shared components in `src/components/*` take strings from the `common` namespace → feature tests that render them must pass `common` to `NextIntlClientProvider` alongside their own namespace, or next-intl throws on the missing key [supersedes the same entry without file:line] (client/src/components/run-cost-badge/RunCostBadge.tsx:23)
+- 2026-10-07 — The PR list table card has `overflow: hidden` → popovers inside rows must render through a portal with fixed positioning or they get clipped [supersedes the same entry without file:line] (client/src/app/repos/[repoId]/pulls/styles.ts:90, client/src/components/severity-counts/FindingsPopover.tsx:89)
+
+## Tool & Library Notes
+
+## Recurring Errors & Fixes
+
+## Session Notes
+
+## Open Questions

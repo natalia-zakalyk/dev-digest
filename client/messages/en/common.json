@@ -17,5 +17,20 @@
     "title": "No repo selected",
     "body": "This repository isn't in your workspace — it may have been removed, or the link is stale. Add a repo or pick another from the switcher to get started.",
     "cta": "Add repository"
+  },
+  "cost": {
+    "tokensShort": "tok",
+    "tooltip": "in {tokensIn} → out {tokensOut} tokens · {cost}"
+  },
+  "findings": {
+    "counter": {
+      "critical": "{count, plural, one {# critical finding} other {# critical findings}}",
+      "warning": "{count, plural, one {# warning} other {# warnings}}",
+      "suggestion": "{count, plural, one {# suggestion} other {# suggestions}}"
+    },
+    "title": "{count, plural, one {# finding in this run} other {# findings in this run}}",
+    "popoverLabel": "Findings",
+    "loading": "Loading findings…",
+    "empty": "No findings"
   }
 }

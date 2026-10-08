@@ -84,6 +84,10 @@ flowchart TB
   HEALTH["/health (liveness) · /health/ready (DB ping → 200/503)"]
 ```
 
+PR-list rollups (`GET /repos/:id/pulls`, computed on read in `modules/pulls/status.ts`):
+`score` = latest review · `cost_usd` = sum of every successful run ([spec](specs/run-cost-badge.md)) ·
+`findings` = per-severity counts of the latest review of each agent ([spec](specs/findings-severity.md)).
+
 ## Environment
 
 `server/.env` (copied from `.env.example`):
