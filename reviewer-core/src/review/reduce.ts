@@ -54,16 +54,70 @@ export function reduceReviews(partials: Review[]): Review {
   return { verdict, score, summary, findings };
 }
 
-/** Extract the slice of the unified diff for a single file (for map chunks). */
+/**
+ * Resolve the file path a `diff --git` block is about: the new-side (b/) path,
+ * or the old-side (a/) path when the file was deleted (`+++ /dev/null`).
+ * `---`/`+++` lines win over the header (unambiguous even with spaces), then
+ * `rename to`, then the header itself.
+ */
+function blockPath(block: string[]): string | null {
+  let aPath: string | null = null;
+  let bPath: string | null = null;
+  let renameTo: string | null = null;
+  for (const line of block) {
+    if (line.startsWith('@@')) break; // headers end at the first hunk
+    if (line.startsWith('--- ')) aPath = stripPrefix(line.slice(4), 'a/');
+    else if (line.startsWith('+++ ')) bPath = stripPrefix(line.slice(4), 'b/');
+    else if (line.startsWith('rename to ')) renameTo = line.slice('rename to '.length).trim();
+  }
+  if (bPath && bPath !== '/dev/null') return bPath;
+  if (bPath === '/dev/null' && aPath && aPath !== '/dev/null') return aPath;
+  if (renameTo) return renameTo;
+  return headerPath(block[0] ?? '');
+}
+
+function stripPrefix(p: string, prefix: string): string {
+  const t = p.replace(/\t.*$/, '').trim(); // drop optional timestamp
+  return t.startsWith(prefix) ? t.slice(prefix.length) : t;
+}
+
+/** Parse `diff --git a/X b/Y` → Y (prefers the symmetric X === Y split). */
+function headerPath(header: string): string | null {
+  const rest = header.slice('diff --git '.length);
+  if (!rest.startsWith('a/')) return null;
+  // symmetric case: "a/P b/P" → length = 2*len(P) + 5
+  const pLen = (rest.length - 5) / 2;
+  if (Number.isInteger(pLen) && pLen > 0) {
+    const a = rest.slice(2, 2 + pLen);
+    const b = rest.slice(2 + pLen + 3);
+    if (rest.slice(2 + pLen, 2 + pLen + 3) === ' b/' && a === b) return b;
+  }
+  const m = rest.match(/^a\/.+? b\/(.+)$/);
+  return m?.[1] ?? null;
+}
+
+/**
+ * Extract the slice of the unified diff for a single file (for map chunks).
+ * Matches the file path EXACTLY (not by substring), so `foo.ts` never pulls in
+ * `foo.tsx` or `sub/foo.ts`.
+ */
 export function sliceDiff(diff: UnifiedDiff, path: string): string {
   const lines = diff.raw.split('\n');
   const out: string[] = [];
-  let capture = false;
+  let block: string[] | null = null;
+  const flush = () => {
+    if (block && blockPath(block) === path) out.push(...block);
+    block = null;
+  };
   for (const line of lines) {
-    if (line.startsWith('diff --git'))
-      capture = line.includes(`b/${path}`) || line.includes(` ${path}`);
-    if (capture) out.push(line);
+    if (line.startsWith('diff --git ')) {
+      flush();
+      block = [line];
+    } else if (block) {
+      block.push(line);
+    }
   }
+  flush();
   if (out.length > 0) return out.join('\n');
   // fallback: synthesize from the file's hunks
   const f = diff.files.find((x) => x.path === path);

@@ -7,9 +7,6 @@ import prReview from "../../../../../../../messages/en/prReview.json";
 import common from "../../../../../../../messages/en/common.json";
 import { PRRow } from "./PRRow";
 
-const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-
 afterEach(cleanup);
 
 function pr(o: Partial<PrMeta>): PrMeta {
@@ -43,6 +40,14 @@ function renderRow(p: PrMeta) {
   );
 }
 
+describe("PRRow — navigation", () => {
+  it("links the title to the PR detail page", () => {
+    renderRow(pr({}));
+    const link = screen.getByRole("link", { name: "Add rate limiting to public API endpoints" });
+    expect(link).toHaveAttribute("href", "/repos/repo-1/pulls/482");
+  });
+});
+
 describe("PRRow — COST cell", () => {
   it("shows the PR's run cost", () => {
     renderRow(pr({ cost_usd: 0.014 }));
@@ -72,15 +77,14 @@ describe("PRRow — FINDINGS cell", () => {
     expect(screen.queryByRole("button", { name: /warning/ })).not.toBeInTheDocument();
   });
 
-  it("hovering a counter loads the findings tooltip; tapping it does not open the PR", () => {
+  it("hovering a counter loads the findings tooltip; the counter is not inside the PR link", () => {
     vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {}))); // keep the lazy load pending
-    push.mockClear();
     renderRow(pr({ findings: { critical: 2, warning: 0, suggestion: 0 } }));
     const counter = screen.getByRole("button", { name: "2 critical findings" });
     fireEvent.mouseEnter(counter);
     expect(screen.getByRole("tooltip", { name: "Findings" })).toHaveTextContent("Loading findings…");
-    fireEvent.click(counter);
-    expect(push).not.toHaveBeenCalled();
+    // No interactive content nested in the <a>: tapping the counter can't follow the link.
+    expect(counter.closest("a")).toBeNull();
     vi.unstubAllGlobals();
   });
 });

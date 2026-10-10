@@ -1,23 +1,20 @@
 /* Settings — left sub-nav + sections. API Keys (OpenRouter + GitHub PAT, with
    Test connection) and Feature Models. Section is deep-linked at
-   /settings/:section. */
+   /settings/:section (the server page validates the param and passes it in). */
 "use client";
 
 import React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { EmptyState, SETTINGS_SECTIONS } from "@devdigest/ui";
 import { useTranslations } from "next-intl";
-import { AppShell } from "../../../../../components/app-shell";
+import { AppShell } from "@/components/app-shell";
 import { SettingsApiKeys } from "./_components/SettingsApiKeys";
 import { SettingsModels } from "./_components/SettingsModels";
-import { DEFAULT_SECTION, SECTION_API_KEYS, SECTION_MODELS } from "./constants";
+import { SECTION_API_KEYS, SECTION_MODELS, type SettingsSection } from "./constants";
 import { s } from "./styles";
 
-export function SettingsView() {
+export function SettingsView({ section }: { section: SettingsSection }) {
   const t = useTranslations("settings");
-  const params = useParams<{ section: string }>();
-  const section = params.section ?? DEFAULT_SECTION;
   const current = SETTINGS_SECTIONS.find((sec) => sec.key === section) ?? SETTINGS_SECTIONS[0];
 
   return (

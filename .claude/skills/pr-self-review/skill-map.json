@@ -1,0 +1,126 @@
+{
+  "$comment": "Which project skills review which changed files. Every skill in .claude/skills/ must appear in a rule or in ignoreSkills (route-skills.mjs warns otherwise). Globs: **, *, ?, {a,b} (no ** inside braces). Editing this file invalidates the review cache.",
+  "failOn": "critical",
+  "batchSize": 15,
+  "severityMap": {
+    "CRITICAL": "CRITICAL",
+    "HIGH": "WARNING",
+    "MEDIUM-HIGH": "WARNING",
+    "MEDIUM": "WARNING",
+    "WARNING": "WARNING",
+    "LOW-MEDIUM": "SUGGESTION",
+    "LOW": "SUGGESTION",
+    "SUGGESTION": "SUGGESTION"
+  },
+  "rules": [
+    {
+      "name": "client UI",
+      "globs": ["client/src/**/*.{ts,tsx}", "client/messages/**/*.json"],
+      "exclude": ["client/src/vendor/**", "client/**/*.test.{ts,tsx}"],
+      "skills": ["frontend-ui-architecture", "react-best-practices", "next-best-practices", "typescript-expert"]
+    },
+    {
+      "name": "client tests",
+      "globs": ["client/**/*.test.{ts,tsx}"],
+      "skills": ["react-testing-library", "typescript-expert"]
+    },
+    {
+      "name": "server code",
+      "globs": ["server/src/**/*.ts"],
+      "exclude": ["server/src/vendor/**", "server/src/db/migrations/**"],
+      "skills": ["onion-architecture", "fastify-best-practices", "typescript-expert"]
+    },
+    {
+      "name": "server persistence",
+      "globs": ["server/src/**/*.repo.ts", "server/src/**/repository.ts", "server/src/db/**/*.ts"],
+      "exclude": ["server/src/db/migrations/**"],
+      "skills": ["drizzle-orm-patterns"]
+    },
+    {
+      "name": "server schema",
+      "globs": ["server/src/db/schema.ts", "server/src/db/schema/**/*.ts", "server/src/db/migrations/**/*.sql"],
+      "skills": ["postgresql-table-design", "drizzle-orm-patterns"]
+    },
+    {
+      "name": "server tests",
+      "globs": ["server/test/**/*.ts"],
+      "skills": ["typescript-expert"]
+    },
+    {
+      "name": "reviewer-core",
+      "globs": ["reviewer-core/src/**/*.ts", "reviewer-core/test/**/*.ts"],
+      "skills": ["onion-architecture", "typescript-expert"]
+    },
+    {
+      "name": "contracts",
+      "globs": ["**/vendor/shared/**/*.ts", "**/contracts/**/*.ts"],
+      "skills": ["zod", "typescript-expert"]
+    },
+    {
+      "name": "security surface",
+      "globs": [
+        "server/src/**/routes.ts",
+        "server/src/**/routes/**/*.ts",
+        "server/src/**/*auth*.ts",
+        "server/src/**/*secret*.ts",
+        "server/src/adapters/**/*.ts",
+        "client/src/lib/api.ts",
+        "client/src/lib/api/**/*.ts",
+        "client/src/app/api/**/*.ts"
+      ],
+      "skills": ["security"]
+    },
+    {
+      "name": "tooling scripts",
+      "globs": ["scripts/**/*.{mjs,js,ts}", ".claude/**/*.{mjs,js}", "e2e/**/*.ts"],
+      "skills": ["typescript-expert"]
+    }
+  ],
+  "ignoreSkills": {
+    "engineering-insights": "knowledge-capture workflow, not a code review lens",
+    "mermaid-diagram": "diagram authoring, not a code review lens",
+    "pr-self-review": "this skill"
+  },
+  "ignorePaths": [
+    "**/*.md",
+    "**/pnpm-lock.yaml",
+    "**/package-lock.json",
+    "**/*.{png,jpg,jpeg,gif,svg,ico,webp}",
+    "**/test-results/**",
+    "docs/research/**"
+  ],
+  "modules": {
+    "client": {
+      "src": ["client/src/**/*.{ts,tsx}"],
+      "srcExclude": ["client/src/vendor/**", "client/**/*.test.{ts,tsx}"],
+      "tests": ["client/**/*.test.{ts,tsx}"],
+      "pm": "pnpm",
+      "typecheck": "pnpm typecheck",
+      "test": "pnpm test"
+    },
+    "server": {
+      "src": ["server/src/**/*.ts"],
+      "srcExclude": ["server/src/vendor/**", "server/src/db/migrations/**"],
+      "tests": ["server/test/**", "server/**/*.test.ts"],
+      "pm": "pnpm",
+      "typecheck": "pnpm typecheck",
+      "test": "pnpm exec vitest run --exclude '**/*.it.test.ts'"
+    },
+    "reviewer-core": {
+      "src": ["reviewer-core/src/**/*.ts"],
+      "srcExclude": [],
+      "tests": ["reviewer-core/test/**", "reviewer-core/**/*.test.ts"],
+      "pm": "npm",
+      "typecheck": "npm run typecheck",
+      "test": "npm test"
+    },
+    "e2e": {
+      "src": ["e2e/lib/**/*.ts", "e2e/run.ts"],
+      "srcExclude": [],
+      "tests": ["e2e/**/*.flow.json", "e2e/**/*.test.ts"],
+      "pm": "npm",
+      "typecheck": "npm run typecheck",
+      "test": null
+    }
+  }
+}

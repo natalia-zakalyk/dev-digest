@@ -23,13 +23,17 @@ flowchart LR
 
 | Route | File | Server/Client |
 |---|---|---|
-| `/` | `src/app/page.tsx` | client |
-| `/onboarding` | `src/app/onboarding/page.tsx` → `AddRepoView` | client |
-| `/repos/:repoId/pulls` | `src/app/repos/[repoId]/pulls/page.tsx` | client |
+| `/` | `src/app/page.tsx` → `HomeView` | RSC entry, client view |
+| `/onboarding` | `src/app/onboarding/page.tsx` → `AddRepoView` | RSC entry, client view |
+| `/repos/:repoId/pulls` | `src/app/repos/[repoId]/pulls/page.tsx` → `PullsListView` | RSC entry, client view |
 | `/repos/:repoId/pulls/:number` | `src/app/repos/[repoId]/pulls/[number]/page.tsx` | client |
 | `/agents` | `src/app/agents/page.tsx` → `AgentsListView` | RSC entry, client view |
-| `/agents/:id` | `src/app/agents/[id]/page.tsx` | client |
+| `/agents/:id` | `src/app/agents/[id]/page.tsx` → `AgentEditorView` | RSC entry, client view |
 | `/settings/:section` | `src/app/settings/[section]/page.tsx` → `SettingsView` | RSC entry, client view |
+
+Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Retry → `reset`),
+`app/global-error.tsx` (root-layout failures; own `<html>`, static `common` strings) and
+`app/not-found.tsx` (unknown URLs / `notFound()`; `NotFoundView` with a "Go to home" CTA).
 
 ---
 
@@ -80,9 +84,9 @@ flowchart LR
 | Files changed (count = files) | `diff` | `DiffTab`: `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden by default with Show/Hide toggle; commenting only when `pr.status === "open"` |
 
 - **Agent runs tab** (`FindingsTab`), top to bottom:
-  1. **Live review** (when active runs exist): `RunStatus` streams SSE logs for all live run ids; **Cancel** (cancels every live run) and **Open run trace** (first live run). When streams close → invalidate active runs + run history, refetch reviews.
+  1. **Live review** (when active runs exist): `RunStatus` streams SSE logs for all live run ids; **Cancel** (cancels every live run) and **Open run trace** (first live run). When the streams end (server's terminal `done`) → invalidate active runs + run history once, refetch reviews.
   2. "Review in progress…" banner while running · "Lethal Trifecta detected" banner when any finding has `kind === "lethal_trifecta"`.
-  3. **Timeline** (`RunHistory`, when runs or commits exist): runs and commits merged newest-first. Run row = outcome badge (running/failed/cancelled/done), agent name (click → opens + scrolls to its Review-run accordion), failure error, severity counters, `RunCostBadge variant="detailed"`, Open trace (sets `?trace`), Delete (not while running; `window.confirm` first).
+  3. **Timeline** (`RunHistory`, when runs or commits exist): runs and commits merged newest-first. Run row = outcome badge (running/failed/cancelled/done), agent name (click → opens + scrolls to its Review-run accordion), failure error, severity counters, `RunCostBadge variant="detailed"`, Open trace (sets `?trace`), Delete (not while running; asks first in a `ConfirmDialog`).
   4. **Review runs**: one `ReviewRunAccordion` per review (newest first, first open): verdict, counts, score, time, `VerdictBanner` + `FindingsPanel` (severity pills/filters, "hide low confidence", `FindingCard`s with accept/dismiss; keyboard `j`/`k` move focus, `a` accept / `d` dismiss the focused finding). Empty → "No findings yet" (hidden while a run is live).
 
 ### Run trace drawer (`?trace=<runId>`)
@@ -95,7 +99,7 @@ flowchart LR
 ## `/agents` — Agents list
 - **Data:** `useAgents()` → `GET /agents` · `useUpdateAgent` (enable toggle) `PUT /agents/:id` · `useCreateAgent` `POST /agents` · `useDeleteAgent` `DELETE /agents/:id` (from `AgentCard`).
 - **States:** loading → skeletons · error → `ErrorState` + Retry · empty → `EmptyState`.
-- **Interactions:** client-side search; **Add agent ▾** → "Create from scratch" or a template item (Security, Performance, Mentor, Conformance, Architecture — all currently just open the blank `CreateAgentModal`); after create → `/agents/:id?tab=config`; card click → `/agents/:id?tab=config`.
+- **Interactions:** client-side search; **Add agent ▾** → "Create from scratch" or a template item (Security, Performance, Mentor, Conformance, Architecture — all currently just open the blank `CreateAgentModal`); after create → `/agents/:id?tab=config`; card click (the card is a link) → `/agents/:id?tab=config`; delete asks first in a `ConfirmDialog`.
 
 ## `/agents/:id` — Agent editor
 - **Query params:** `?tab` — only `config` is valid; anything else falls back to `config`.
@@ -104,6 +108,6 @@ flowchart LR
 - **Interactions:** switch agent from the left list (keeps `?tab`), toggle enabled per card, edit config (name, description, model, system prompt, repo-intel, enabled) and save; "Run on a PR…" → `/`.
 
 ## `/settings/:section` — Settings
-- **Path param:** `section` ∈ `SETTINGS_SECTIONS` (`src/vendor/ui/nav.ts`): `api-keys` (default) · `models`. Unknown sections render the first section's label with a fallback `EmptyState`.
+- **Path param:** `section` ∈ `SETTINGS_SECTIONS` (`src/vendor/ui/nav.ts`): `api-keys` (default) · `models`. Unknown sections → `notFound()` (the server page validates the param), rendering `app/not-found.tsx`.
 - **API Keys** (`SettingsApiKeys`): `useSecretsStatus` → `GET /settings/secrets-status` (booleans only); per provider "Test connection" → `POST /settings/test-connection` (on success invalidates `provider-models` + `secrets-status`).
 - **Feature Models** (`SettingsModels`): `useSettings` → `GET /settings`, `useUpdateSettings` → `PUT /settings`, model list from `useProviderModels("openrouter")`.

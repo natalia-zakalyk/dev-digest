@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import * as t from '../db/schema.js';
 import { withTimeout, withRetry } from './resilience.js';
+import { redactCredentials } from './redact.js';
 
 /**
  * JobRunner — async work (clone, PR import, indexing, polling) on a
@@ -90,7 +91,8 @@ export class JobRunner {
           .set({
             status: 'failed',
             finishedAt: new Date(),
-            error: (err as Error).message,
+            // Never persist credentials a git/HTTP error may echo (URL userinfo, auth header).
+            error: redactCredentials(String((err as Error)?.message ?? err)),
           })
           .where(eq(t.jobs.id, jobId));
         throw err;
@@ -103,5 +105,33 @@ export class JobRunner {
   /** Wait for the queue to drain (useful in tests). */
   async onIdle(): Promise<void> {
     await this.queue.onIdle();
+  }
+
+  /**
+   * Graceful shutdown: stop starting queued jobs and wait for in-flight ones,
+   * but no longer than `deadlineMs`. Resolves true when the queue drained.
+   */
+  async drain(deadlineMs: number): Promise<boolean> {
+    // Queued-but-not-started jobs stay 'queued' in the DB (same as a crash).
+    this.queue.pause();
+    if (this.queue.pending === 0) return true;
+    let check = () => {};
+    const pendingZero = new Promise<boolean>((r) => {
+      check = () => {
+        if (this.queue.pending === 0) r(true);
+      };
+      this.queue.on('next', check);
+    });
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<boolean>((r) => {
+      timer = setTimeout(() => r(false), deadlineMs);
+      timer.unref?.();
+    });
+    try {
+      return await Promise.race([pendingZero, timeout]);
+    } finally {
+      clearTimeout(timer);
+      this.queue.off('next', check);
+    }
   }
 }

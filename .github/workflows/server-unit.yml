@@ -65,6 +65,10 @@ jobs:
 
       - run: pnpm typecheck
 
+      # Migration-history consistency (snapshots/journal) — offline, no DB:
+      # drizzle-kit check only reads src/db/migrations.
+      - run: pnpm db:check
+
   unit:
     name: tests
     runs-on: ubuntu-latest
@@ -93,7 +97,5 @@ jobs:
         working-directory: reviewer-core
         run: npm ci
 
-      # Inlined rather than `pnpm test:unit`: server/package.json is
-      # skip-worktree (a local variant), so the committed package.json may
-      # not carry the split scripts. Run vitest directly.
+      # Hermetic lane: everything except the DB-backed `*.it.test.ts` files.
       - run: pnpm exec vitest run --exclude '**/*.it.test.ts'

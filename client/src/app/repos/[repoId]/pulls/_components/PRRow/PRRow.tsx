@@ -1,8 +1,11 @@
-/* PRRow — one clickable row in the PR list table. Ported from screen_dashboard.jsx. */
+/* PRRow — one row in the PR list table. Ported from screen_dashboard.jsx.
+   The whole row links to the PR (stretched-link pattern: the title is the one
+   real <a>, its ::after overlays the row); the FINDINGS counters sit above the
+   overlay so they stay interactive without nesting buttons inside the link. */
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import type { PrMeta } from "@/lib/types";
@@ -16,22 +19,22 @@ import { s } from "../../styles";
 
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
-  const router = useRouter();
   const [h, setH] = React.useState(false);
-  const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
+  const st = STATUS_META[pr.status] ?? STATUS_META.needs_review;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
   return (
-    <div
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      onClick={() => router.push(`/repos/${repoId}/pulls/${pr.number}`)}
-      style={s.row(h)}
-    >
+    <div onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)} style={s.row(h)}>
       <div style={s.rowTitleCell}>
         <Icon.GitPullRequest size={15} style={s.rowIcon(st.c)} />
         <div style={s.rowTitleWrap}>
-          <div style={s.rowTitle(h)}>{pr.title}</div>
+          <Link
+            href={`/repos/${repoId}/pulls/${pr.number}`}
+            className="dd-stretched-link"
+            style={s.rowTitle(h)}
+          >
+            {pr.title}
+          </Link>
           <span className="mono" style={s.rowNumber}>
             #{pr.number}
           </span>
@@ -45,7 +48,7 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         <Badge
           color={SIZE_COLOR[size]}
           bg="transparent"
-          style={s.sizeBadgeBorder(SIZE_COLOR[size]!)}
+          style={s.sizeBadgeBorder(SIZE_COLOR[size])}
         >
           {size} · {lines}
         </Badge>
@@ -57,7 +60,7 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
           <span style={s.muted}>—</span>
         )}
       </div>
-      <div>
+      <div style={s.raised}>
         <PrFindings pr={pr} />
       </div>
       <div>

@@ -25,22 +25,23 @@ flowchart LR
 |---|---|---|
 | Config | Alt ports: PG `5433`, API `3101`, web `3100` (env `E2E_PG_PORT` / `E2E_API_PORT` / `E2E_WEB_PORT`; also `E2E_PG_CONTAINER`, `E2E_PG_IMAGE`, `E2E_PG_DB/USER/PASS`) | `scripts/e2e.sh:26-33` |
 | Env export | `DATABASE_URL` on `127.0.0.1:$PG_PORT`, `API_PORT`, `WEB_PORT`, `NEXT_PUBLIC_API_BASE`, `E2E_BASE_URL` are exported **before** any spawn; dotenv does not override set vars, so `server/.env` values lose | `scripts/e2e.sh:40-43` |
-| Prereqs | Requires `docker` + `pnpm`; missing `agent-browser` is only a warning | `scripts/e2e.sh:49-52` |
-| Teardown trap | Installed first. On EXIT/INT/TERM: kill API + web process trees (leaves-first, since tsx/next listen in a grandchild), kill anything still listening on the alt ports, `docker rm -f` the container | `scripts/e2e.sh:60-82` |
+| Prereqs | Requires `docker` + `pnpm`; missing `agent-browser` is only a warning. Helpers (`log`, `kill_tree`, `require_free_ports`) come from `scripts/lib.sh` | `scripts/e2e.sh:46-52` |
+| Port preflight | Fails fast with the holder's PID/command if `$WEB_PORT`/`$API_PORT` are already listening — runs **before** the trap, so the trap's port backstop only ever kills what this script started | `scripts/e2e.sh:54-57` |
+| Teardown trap | Installed before any spawn. On EXIT/INT/TERM: kill API + web process trees (leaves-first, since tsx/next listen in a grandchild), kill anything still listening on the alt ports, `docker rm -f` the container, remove the throwaway `$E2E_HOME` | `scripts/e2e.sh:59-82` |
 | DB | `docker run --rm` with **no volume** → empty each run; waits up to 60 s for `pg_isready` health | `scripts/e2e.sh:86-104` |
-| Deps | `pnpm install` in `server`/`client` if `node_modules` missing; `npm ci` in `reviewer-core` (the API imports its raw source) | `scripts/e2e.sh:107-117` |
-| Migrate + seed | Hard guard refuses unless `DATABASE_URL` is on `:$PG_PORT`; then `pnpm db:migrate` and `pnpm db:seed` | `scripts/e2e.sh:121-128` |
-| API | `pnpm exec tsx src/server.ts` (no build, no watcher); polls `/health` up to 60 s | `scripts/e2e.sh:134-144` |
-| Web | `pnpm exec next dev -p $WEB_PORT`; polls the root up to 60 s | `scripts/e2e.sh:148-158` |
-| Run | `cd e2e && npm test`; its exit code becomes the script's exit code | `scripts/e2e.sh:162-166` |
+| Deps | `pnpm install --frozen-lockfile` in `server`/`client` if `node_modules` missing; `npm ci` in `reviewer-core` (the API imports its raw source) and `e2e` | `scripts/e2e.sh:106-116` |
+| Migrate + seed | Hard guard refuses unless `DATABASE_URL` is on `:$PG_PORT`; then `pnpm db:migrate` and `pnpm db:seed` | `scripts/e2e.sh:120-129` |
+| API | `server/node_modules/.bin/tsx src/server.ts` (no build, no watcher) with **key isolation**: `HOME` → throwaway temp dir (no `~/.devdigest/secrets.json`), `env -u` of `OPENAI/ANTHROPIC/OPENROUTER_API_KEY`, `GITHUB_TOKEN/PAT` and any other `*_API_KEY`, and `DOTENV_CONFIG_PATH` → a nonexistent file so `dotenv/config` cannot refill them from `server/.env`; polls `/health` up to 60 s | `scripts/e2e.sh:131-158` |
+| Web | `pnpm exec next dev -p $WEB_PORT`; polls the root up to 60 s | `scripts/e2e.sh:160-172` |
+| Run | `cd e2e && npm test`; its exit code becomes the script's exit code | `scripts/e2e.sh:174-180` |
 
 ### CI (`.github/workflows/e2e-web.yml`)
 
 CI does **not** use `e2e.sh`. It runs on push to `main` / PRs touching
-`client/`, `server/`, `e2e/` or the workflow. It uses the default ports
+`client/`, `server/`, `e2e/`, `reviewer-core/`, `scripts/` or the workflow. It uses the default ports
 (`docker compose up -d` Postgres on 5432, API 3001, web 3000), migrates and seeds,
 runs `pnpm build && pnpm start` for the web (production build, not `next dev`),
-installs `agent-browser` with `install --with-deps`, then `npm ci && npm test`.
+installs a pinned `agent-browser@0.39.0` with `install --with-deps`, then `npm ci`, `npm run typecheck`, `npm test`.
 On failure it uploads `e2e/test-results/**` as the `e2e-failure` artifact.
 
 ### Against your own dev stack
@@ -104,8 +105,9 @@ Types live in `lib/assert.ts:9-22`.
 ```
 
 `{BASE}` in any arg is replaced with `E2E_BASE_URL`, trailing slashes trimmed
-(`lib/assert.ts:37-40`). Files are parsed with a plain `JSON.parse` and cast — there is
-**no schema validation**, so a typo'd key is silently ignored.
+(`lib/assert.ts:37-40`). Files are parsed with `JSON.parse` and validated by `parseFlow` (`lib/assert.ts`,
+hand-written — no zod dep): a missing `name`, zero steps, an empty/non-string `cmd`
+or any unknown key (e.g. `asert`) aborts the run with every problem listed.
 
 ### Step vocabulary
 
@@ -141,8 +143,9 @@ whose timeout makes agent-browser exit non-zero.
 
 - **No LLM call.** Flows only read seeded data and never submit a review/run. The API
   boots without keys because provider keys are not part of the config schema
-  (`server/src/platform/config.ts:9-14`); `e2e.sh` does not strip keys from your
-  env/`.env` — they are just never used by these flows.
+  (`server/src/platform/config.ts:9-14`). `e2e.sh` additionally starts the API with
+  no keys at all (temp `HOME`, keys unset, `.env` not loaded — see the API row above).
+  CI likewise sets no keys.
 - **Seeded data** (`server/src/db/seed.ts`): repo `acme/payments-api`, PR #482
   "Add rate limiting to public API endpoints" with file `src/config.ts`, a
   `request_changes` review with finding "Hardcoded Stripe secret key in commit",

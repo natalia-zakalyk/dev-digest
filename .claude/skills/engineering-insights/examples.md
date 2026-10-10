@@ -22,7 +22,7 @@ The test: would an agent reading this cold know exactly what to do, without re-i
 
 ## Reject — don't write
 - A summary of what the change does (commit message / PR body).
-- Anything the code makes obvious, or already in README, `docs/`, CLAUDE.md or INSIGHTS.md.
+- Anything the code makes obvious, or already in README, `docs/`, AGENTS.md or INSIGHTS.md.
 - Generic best practice not specific to this repo ("use strict mode").
 - One-off typos and fixes that won't recur; notes about code that is still in flux.
 - A narrative of the session ("first we tried…, then…") — extract the insight instead.

@@ -1,0 +1,35 @@
+# Shared-contract drift guard — @devdigest/shared exists in two copies
+# (server/src/vendor/shared is canonical, client/src/vendor/shared mirrors it;
+# there is no workspace). Fails when they diverge. No installs needed.
+name: shared drift
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/src/vendor/shared/**'
+      - 'client/src/vendor/shared/**'
+      - 'scripts/check-shared-drift.sh'
+      - '.github/workflows/shared-drift.yml'
+  pull_request:
+    paths:
+      - 'server/src/vendor/shared/**'
+      - 'client/src/vendor/shared/**'
+      - 'scripts/check-shared-drift.sh'
+      - '.github/workflows/shared-drift.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: server ≡ client vendor/shared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: ./scripts/check-shared-drift.sh

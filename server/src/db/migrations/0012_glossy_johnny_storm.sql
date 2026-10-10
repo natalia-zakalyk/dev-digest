@@ -1,0 +1,1 @@
+CREATE INDEX "reviews_agent_idx" ON "reviews" USING btree ("agent_id");

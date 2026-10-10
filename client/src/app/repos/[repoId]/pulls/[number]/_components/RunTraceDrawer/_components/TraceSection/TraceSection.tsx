@@ -20,15 +20,26 @@ export function TraceSection({
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const I = Icon[icon];
+  const bodyId = React.useId();
   return (
     <div style={s.section}>
-      <div onClick={() => setOpen((o) => !o)} style={s.sectionHead}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((o) => !o)}
+        style={s.sectionHead}
+      >
         <I size={15} style={s.sectionIcon} />
         <span style={s.sectionTitle}>{title}</span>
         {right}
         <Icon.ChevronDown size={15} style={s.chevron(open)} />
-      </div>
-      {open && <div style={s.sectionBody}>{children}</div>}
+      </button>
+      {open && (
+        <div id={bodyId} style={s.sectionBody}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

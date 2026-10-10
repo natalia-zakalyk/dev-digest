@@ -1,5 +1,14 @@
 import type { CSSProperties } from "react";
 
+/** Resets a <button> used as a full-width disclosure header. */
+const headButton: CSSProperties = {
+  width: "100%",
+  border: "none",
+  font: "inherit",
+  color: "inherit",
+  textAlign: "left",
+};
+
 /** Co-located styles for RunTraceDrawer (extracted from inline styles). */
 export const s = {
   // ---- TraceSection ----
@@ -11,6 +20,8 @@ export const s = {
     background: "var(--bg-elevated)",
   } satisfies CSSProperties,
   sectionHead: {
+    ...headButton,
+    background: "none",
     display: "flex",
     alignItems: "center",
     gap: 10,
@@ -34,6 +45,7 @@ export const s = {
     overflow: "hidden",
   } satisfies CSSProperties,
   toolHead: {
+    ...headButton,
     display: "flex",
     alignItems: "center",
     gap: 10,
@@ -62,7 +74,29 @@ export const s = {
     marginBottom: 8,
     overflow: "hidden",
   } satisfies CSSProperties,
-  promptHead: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer" } satisfies CSSProperties,
+  promptHead: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" } satisfies CSSProperties,
+  promptToggleBtn: {
+    ...headButton,
+    flex: 1,
+    minWidth: 0,
+    padding: 0,
+    background: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  promptMiniBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 4,
+    borderRadius: 5,
+    border: "1px solid var(--border)",
+    background: "var(--bg-elevated)",
+    color: "var(--text-muted)",
+    cursor: "pointer",
+  } satisfies CSSProperties,
   promptDot: (color: string): CSSProperties => ({ width: 7, height: 7, borderRadius: 2, background: color }),
   promptLabel: { fontSize: 13, fontWeight: 600 } satisfies CSSProperties,
   promptToggle: { marginLeft: "auto", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,

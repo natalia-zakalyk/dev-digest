@@ -224,44 +224,48 @@ export class ReviewRunExecutor {
 
       const keptFindings = outcome.review.findings;
 
-      // ---- Persist review + findings ----------------------------------------
-      const review = await this.repo.insertReview({
-        workspaceId,
-        prId: pull.id,
-        agentId: agent.id,
-        runId,
-        kind: 'review',
-        verdict: outcome.review.verdict,
-        summary: outcome.review.summary,
-        score: outcome.review.score,
-        model: agent.model,
-      });
-      const findingRows = await this.repo.insertFindings(review.id, keptFindings);
-      runLog.result(`Persisted review ${review.id} with ${findingRows.length} finding(s)`);
-
-      // Mark the commit this review ran against so the PR list can tell
-      // reviewed / needs-review (head moved) / stale apart.
-      await this.repo.markReviewed(pull.id, pull.headSha);
-
-      const durationMs = Date.now() - start;
-
       // Deterministic blocker count (severity ≥ the agent's gate) — the signal
       // the timeline colors on, NOT the model's self-reported verdict.
       const blockers = countBlockers(keptFindings, agent.ciFailOn);
 
-      // ---- Observability: agent_runs + ONE run_traces document --------------
-      await this.repo.completeAgentRun(runId, {
-        status: 'done',
-        durationMs,
-        tokensIn,
-        tokensOut,
-        costUsd,
-        findingsCount: findingRows.length,
-        grounding,
-        score: outcome.review.score,
-        blockers,
-        error: null,
+      // ---- Persist review + findings + run row in ONE transaction ------------
+      // Either the review, its findings, the PR's reviewed-SHA and the `done`
+      // run row all land, or none do (a crash mid-way used to leave a review
+      // with no completed run, or a `done` run with no review). A failure here
+      // rolls back and falls into the catch below, which marks the run failed.
+      const durationMs = Date.now() - start;
+      const { review, findingRows } = await this.repo.transaction(async (tx) => {
+        const review = await tx.insertReview({
+          workspaceId,
+          prId: pull.id,
+          agentId: agent.id,
+          runId,
+          kind: 'review',
+          verdict: outcome.review.verdict,
+          summary: outcome.review.summary,
+          score: outcome.review.score,
+          model: agent.model,
+        });
+        const findingRows = await tx.insertFindings(review.id, keptFindings);
+        // Mark the commit this review ran against so the PR list can tell
+        // reviewed / needs-review (head moved) / stale apart.
+        await tx.markReviewed(pull.id, pull.headSha);
+        // ---- Observability: agent_runs row (the trace doc is written below) --
+        await tx.completeAgentRun(runId, {
+          status: 'done',
+          durationMs,
+          tokensIn,
+          tokensOut,
+          costUsd,
+          findingsCount: findingRows.length,
+          grounding,
+          score: outcome.review.score,
+          blockers,
+          error: null,
+        });
+        return { review, findingRows };
       });
+      runLog.result(`Persisted review ${review.id} with ${findingRows.length} finding(s)`);
 
       const trace: RunTrace = {
         config: {
@@ -295,7 +299,12 @@ export class ReviewRunExecutor {
         log: runLog.logFor(runId),
       };
       runLog.info('Run complete; trace persisted');
-      await this.repo.saveRunTrace(runId, trace);
+      // Deliberately OUTSIDE the transaction and best-effort: the trace is a
+      // large debug document. A failed trace write must not roll back (or, via
+      // the catch below, flip to `failed`) an already-committed review.
+      await this.repo.saveRunTrace(runId, trace).catch((err: unknown) => {
+        runLog.error(`Run trace persist failed (review saved): ${(err as Error).message}`);
+      });
       this.container.runBus.complete(runId);
 
       return { review, findings: findingRows, grounding, raw: outcome.review };

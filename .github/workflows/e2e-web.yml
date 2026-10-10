@@ -15,12 +15,16 @@ on:
       - 'client/**'
       - 'server/**'
       - 'e2e/**'
+      - 'reviewer-core/**'
+      - 'scripts/**'
       - '.github/workflows/e2e-web.yml'
   pull_request:
     paths:
       - 'client/**'
       - 'server/**'
       - 'e2e/**'
+      - 'reviewer-core/**'
+      - 'scripts/**'
       - '.github/workflows/e2e-web.yml'
 
 permissions:
@@ -84,7 +88,7 @@ jobs:
         run: |
           # tsx directly (not `pnpm start`): the committed package.json's start
           # is `node dist/server.js`, which would need a build first. tsx runs
-          # the TS entrypoint as dev does. (server/package.json is skip-worktree.)
+          # the TS entrypoint as dev does.
           nohup pnpm exec tsx src/server.ts > "$RUNNER_TEMP/api.log" 2>&1 &
           echo "waiting for API /health…"
           for i in $(seq 1 30); do
@@ -108,16 +112,26 @@ jobs:
           curl -fsS http://localhost:3000 >/dev/null 2>&1 || { echo "::error::web never became reachable"; cat "$RUNNER_TEMP/web.log"; exit 1; }
 
       # --- agent-browser CLI (Rust + CDP) + Chrome for Testing ---
+      # Pinned so a new agent-browser release can't silently change CLI
+      # behaviour under the flows. NOTE: 0.39.0 was the npm latest when pinned
+      # (2026-10-10) and has NOT yet been validated against e2e/specs — confirm
+      # on the first green run, and bump deliberately.
       - name: Install agent-browser
         run: |
-          npm i -g agent-browser
+          npm i -g agent-browser@0.39.0
           agent-browser install --with-deps
+
+      - name: Install e2e deps
+        working-directory: e2e
+        run: npm ci
+
+      - name: Typecheck e2e runner
+        working-directory: e2e
+        run: npm run typecheck
 
       - name: Run e2e flows
         working-directory: e2e
-        run: |
-          npm ci
-          npm test
+        run: npm test
 
       - name: Upload failure artifacts
         if: failure()

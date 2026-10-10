@@ -5,7 +5,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { LiveLogStream, type LogLine } from "@devdigest/ui";
-import { useRunEvents } from "../../../../../../../lib/hooks/reviews";
+import { useRunEvents } from "@/lib/hooks/reviews";
 import { LOG_HEIGHT } from "./constants";
 import { s } from "./styles";
 
@@ -18,12 +18,23 @@ export function RunStatus({
 }) {
   const t = useTranslations("prReview");
   const { events, running } = useRunEvents(runIds);
-  const wasRunning = React.useRef(false);
-
+  // Latest onDone without re-running the effect when the parent re-renders
+  // with a new callback identity.
+  const onDoneRef = React.useRef(onDone);
   React.useEffect(() => {
-    if (running) wasRunning.current = true;
-    if (!running && wasRunning.current) onDone?.();
-  }, [running, onDone]);
+    onDoneRef.current = onDone;
+  });
+
+  // Fire onDone once per running true → false transition (not on every render).
+  const wasRunning = React.useRef(false);
+  React.useEffect(() => {
+    if (running) {
+      wasRunning.current = true;
+    } else if (wasRunning.current) {
+      wasRunning.current = false;
+      onDoneRef.current?.();
+    }
+  }, [running]);
 
   if (runIds.length === 0) return null;
 

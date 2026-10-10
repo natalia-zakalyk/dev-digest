@@ -29,7 +29,57 @@ export interface BuildAppOptions {
   config?: AppConfig;
   db?: Db;
   overrides?: ContainerOverrides;
+  /** Max time app.close() waits for in-flight jobs (default SHUTDOWN_JOB_DEADLINE_MS). */
+  shutdownDeadlineMs?: number;
 }
+
+/** How long graceful shutdown waits for in-flight jobs before closing the DB. */
+export const SHUTDOWN_JOB_DEADLINE_MS = 10_000;
+
+/**
+ * Pino redaction — credentials must never reach logs (request headers, provider
+ * SDK errors that echo their request config, any `token`/`apiKey` field).
+ */
+export const LOG_REDACT_PATHS = [
+  'req.headers.authorization',
+  'req.headers.cookie',
+  'req.headers["x-api-key"]',
+  'headers.authorization',
+  'headers["x-api-key"]',
+  'err.request.headers.authorization',
+  'err.request.headers["x-api-key"]',
+  'err.headers.authorization',
+  'err.config.headers.Authorization',
+  'err.config.headers.authorization',
+  'err.response.request.headers.authorization',
+  'token',
+  'apiKey',
+  'key',
+  '*.token',
+  '*.apiKey',
+  '*.api_key',
+  '*.key',
+  '*.password',
+  '*.secret',
+];
+
+/** Status → stable error code for 4xx errors that aren't AppErrors. */
+const CODE_BY_STATUS: Record<number, string> = {
+  400: 'bad_request',
+  401: 'unauthorized',
+  403: 'forbidden',
+  404: 'not_found',
+  405: 'method_not_allowed',
+  406: 'not_acceptable',
+  408: 'request_timeout',
+  409: 'conflict',
+  413: 'payload_too_large',
+  415: 'unsupported_media_type',
+  422: 'validation_error',
+  429: 'rate_limited',
+};
+
+const INTERNAL_ERROR = { error: { code: 'internal_error', message: 'Internal error' } } as const;
 
 /**
  * buildApp() — exported so tests can use `app.inject()` without a real port.
@@ -52,6 +102,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
         ? false
         : {
             level: config.logLevel,
+            redact: { paths: LOG_REDACT_PATHS, censor: '[redacted]' },
             transport:
               config.nodeEnv === 'development'
                 ? { target: 'pino-pretty', options: { colorize: true } }
@@ -112,15 +163,20 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   });
 
   // Structured error handler. Registered BEFORE modules so encapsulated
-  // module plugins inherit it. Validation → 422; AppError → its status.
-  app.setErrorHandler((err: unknown, _req, reply) => {
-    // Request validation failure from the zod type provider (schema.body/params).
-    if (hasZodFastifySchemaValidationErrors(err)) {
+  // module plugins inherit it.
+  //   request validation → 422 · AppError → its status · other 4xx → mapped
+  //   code · everything else (incl. INTERNAL ZodErrors from parsing DB rows /
+  //   traces) → 500 with a generic message (detail only in the log).
+  app.setErrorHandler((err: unknown, req, reply) => {
+    // Request validation failure: zod type provider (schema.body/params/query)
+    // or Fastify's own validator (err.validation + FST_ERR_VALIDATION).
+    const fe = err as { validation?: unknown; code?: string; statusCode?: number; message?: string };
+    if (hasZodFastifySchemaValidationErrors(err) || (fe?.validation && fe.code === 'FST_ERR_VALIDATION')) {
       reply.status(422).send({
         error: {
           code: 'validation_error',
           message: 'Request validation failed',
-          details: err.validation,
+          details: fe.validation,
         },
       });
       return;
@@ -128,38 +184,37 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     // Response failed its own serialization schema — never leak the raw object;
     // log it and return a generic 500.
     if (isResponseSerializationError(err)) {
-      app.log.error({ err }, 'response serialization failed');
-      reply.status(500).send({ error: { code: 'internal_error', message: 'Internal error' } });
-      return;
-    }
-    // Robust ZodError detection: `instanceof` can fail across duplicate zod
-    // module instances (shared vs api), so also match by shape. Still needed for
-    // service-level `.parse` calls and routes not yet on schema.body.
-    const maybeZod = err as { name?: string; issues?: unknown; errors?: unknown };
-    const isZodError =
-      err instanceof z.ZodError ||
-      (maybeZod?.name === 'ZodError' &&
-        (Array.isArray(maybeZod.issues) || Array.isArray(maybeZod.errors)));
-    if (isZodError) {
-      reply.status(422).send({
-        error: {
-          code: 'validation_error',
-          message: 'Request validation failed',
-          details: maybeZod.issues ?? maybeZod.errors,
-        },
-      });
+      req.log.error({ err }, 'response serialization failed');
+      reply.status(500).send(INTERNAL_ERROR);
       return;
     }
     if (err instanceof AppError) {
+      if (err.statusCode >= 500) req.log.error({ err }, 'request failed');
       reply.status(err.statusCode).send({
         error: { code: err.code, message: err.message, details: err.details },
       });
       return;
     }
-    app.log.error(err);
-    const e = err as { statusCode?: number; message?: string };
-    reply.status(e.statusCode ?? 500).send({
-      error: { code: 'internal_error', message: e.message ?? 'Internal error' },
+    // A ZodError reaching here is NOT a request-validation error (those are
+    // handled above) — it's server data (DB row, trace) failing its contract:
+    // a 500, logged. `instanceof` can fail across duplicate zod instances, so
+    // the shape check stays; it only affects logging now.
+    const status = typeof fe?.statusCode === 'number' ? fe.statusCode : 500;
+    if (status >= 400 && status < 500) {
+      reply.status(status).send({
+        error: { code: CODE_BY_STATUS[status] ?? 'client_error', message: fe.message ?? 'Bad request' },
+      });
+      return;
+    }
+    const isZod = err instanceof z.ZodError || (err as { name?: string })?.name === 'ZodError';
+    req.log.error({ err }, isZod ? 'internal data failed schema validation' : 'unhandled error');
+    reply.status(status >= 500 && status < 600 ? status : 500).send(INTERNAL_ERROR);
+  });
+
+  // Unknown routes → the same structured envelope as every other error.
+  app.setNotFoundHandler((req, reply) => {
+    reply.status(404).send({
+      error: { code: 'not_found', message: `Route ${req.method} ${req.url.split('?')[0]} not found` },
     });
   });
 
@@ -169,8 +224,21 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     await app.register(plugin);
   }
 
-  // Close the db handle we created on shutdown.
-  if (handle) app.addHook('onClose', async () => handle.close());
+  // Graceful shutdown. preClose runs BEFORE the HTTP server stops accepting /
+  // waits for connections — end open SSE streams there, or close() would wait
+  // on them forever. onClose then waits (bounded) for in-flight jobs before the
+  // DB pool closes underneath them.
+  app.addHook('preClose', async () => {
+    container.runBus.endAllStreams();
+  });
+  const shutdownDeadlineMs = opts.shutdownDeadlineMs ?? SHUTDOWN_JOB_DEADLINE_MS;
+  app.addHook('onClose', async () => {
+    const drained = await container.jobs.drain(shutdownDeadlineMs);
+    if (!drained) app.log.warn({ shutdownDeadlineMs }, 'shutdown: jobs still running at deadline');
+    // Close the db handle we created — in the same hook so it's strictly AFTER
+    // the job drain (hook ordering across addHook calls isn't relied upon).
+    if (handle) await handle.close();
+  });
 
   return app;
 }

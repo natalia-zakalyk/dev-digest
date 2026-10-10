@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunTrace } from "@devdigest/shared";
-import messages from "../../../../../../../../messages/en/runs.json"; // apps/web/messages/en/runs.json
+import messages from "../../../../../../../../messages/en/runs.json";
 
 // Mock the trace hooks so the drawer renders without a query client / SSE.
 const TRACE: RunTrace = {
@@ -19,14 +19,14 @@ const TRACE: RunTrace = {
   ],
 };
 
-vi.mock("../../../../../../../lib/hooks/trace", () => ({
+vi.mock("@/lib/hooks/trace", () => ({
   useRunTrace: () => ({ data: TRACE, isLoading: false }),
 }));
-vi.mock("../../../../../../../lib/hooks/reviews", () => ({
+vi.mock("@/lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
 }));
 
-import RunTraceDrawer from "./RunTraceDrawer";
+import { RunTraceDrawer } from "./RunTraceDrawer";
 
 afterEach(cleanup);
 
@@ -54,5 +54,27 @@ describe("A5 Run Trace drawer (smoke)", () => {
     fireEvent.click(screen.getByText("log"));
     // LiveLogStream renders its filter input
     expect(screen.getByPlaceholderText("Filter log…")).toBeInTheDocument();
+  });
+});
+
+describe("Run Trace drawer — disclosures are buttons", () => {
+  it("sections, prompt blocks and tool calls expose aria-expanded and toggle", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+
+    const prompt = screen.getByRole("button", { name: /Prompt assembly/ });
+    expect(prompt).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(prompt);
+    expect(prompt).toHaveAttribute("aria-expanded", "true");
+
+    const system = screen.getByRole("button", { name: /System/ });
+    expect(system).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(system);
+    expect(system).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("You are a reviewer.")).toBeInTheDocument();
+
+    const tool = screen.getByRole("button", { name: /review_file/ });
+    expect(tool).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(tool);
+    expect(tool).toHaveAttribute("aria-expanded", "true");
   });
 });

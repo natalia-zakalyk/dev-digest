@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, uniqueIndex, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, unique, primaryKey } from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 
 // ============================================================ Tenancy & core
@@ -43,6 +43,11 @@ export const settings = pgTable(
     value: jsonb('value'),
   },
   (t) => ({
-    uq: uniqueIndex('settings_ws_user_key_uq').on(t.workspaceId, t.userId, t.key),
+    // NULLS NOT DISTINCT: a workspace-level setting (user_id NULL) must be
+    // unique per key too, and ON CONFLICT must fire for it. Drizzle 0.38's
+    // uniqueIndex() has no nullsNotDistinct(), so this is a UNIQUE constraint.
+    uq: unique('settings_ws_user_key_uq')
+      .on(t.workspaceId, t.userId, t.key)
+      .nullsNotDistinct(),
   }),
 );

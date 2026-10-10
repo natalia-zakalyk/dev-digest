@@ -12,11 +12,10 @@ Almost everything is a Client Component. The server side is deliberately tiny:
 |---|---|
 | `src/app/layout.tsx` | Root layout (async RSC). Loads locale + messages, injects theme script, mounts providers. |
 | `src/i18n/request.ts` | next-intl `getRequestConfig`: reads every `messages/en/*.json` from disk (`node:fs`) and merges them as `{ [namespace]: {...} }`. Wired in via `createNextIntlPlugin("./src/i18n/request.ts")` in `next.config.mjs`. |
-| `src/app/agents/page.tsx`, `src/app/settings/[section]/page.tsx` | No `"use client"`: thin RSC entries that just render a client view (`AgentsListView`, `SettingsView`). |
+| `page.tsx` for `/`, `/onboarding`, `/repos/[repoId]/pulls`, `/agents`, `/agents/[id]`, `/settings/[section]`; `not-found.tsx` | No `"use client"`: thin RSC entries that export `metadata` and render a client view (`HomeView`, `AddRepoView`, `PullsListView`, `AgentsListView`, `AgentEditorView`, `SettingsView`, `NotFoundView`). `/settings/[section]` awaits `params` and calls `notFound()` for unknown sections. |
 
-Everything else that renders UI starts with `"use client"`: the other `page.tsx` files
-(`/`, `/onboarding`, `/repos/[repoId]/pulls`, `/repos/[repoId]/pulls/[number]`, `/agents/[id]`),
-all `_components/*`, all `src/components/*`, all `src/lib/hooks/*`, and the providers
+Everything else that renders UI starts with `"use client"`: `app/error.tsx` / `app/global-error.tsx`,
+`/repos/[repoId]/pulls/[number]/page.tsx`, all `_components/*`, all `src/components/*`, all `src/lib/hooks/*`, and the providers
 (`providers.tsx`, `theme.tsx`, `toast.tsx`, `repo-context.tsx`).
 No page fetches data on the server — all data comes from the browser through TanStack Query.
 
@@ -51,7 +50,7 @@ flowchart TD
 |---|---|---|
 | `QueryCache.onError` | `ApiError.status === 0` (network) or `>= 500` | Expected 4xx (e.g. 404) stay silent so pages can render inline empty/error states. |
 | `MutationCache.onError` | always | Mutations are user actions — the user must see failure. |
-| SSE `error` events | each `kind: "error"` event with a `msg` (`hooks/reviews.ts:189`) | Run failures arrive over SSE, never through the query cache. |
+| SSE `error` events | each `kind: "error"` event with a `msg` (`hooks/reviews.ts:268`) | Run failures arrive over SSE, never through the query cache. |
 
 `notify` (`src/lib/toast.tsx`) is a module-level bridge so non-React code (the query cache, hooks)
 can raise toasts; `useToast()` is the in-component API. Toasts auto-dismiss after 4 s.
@@ -95,12 +94,17 @@ Conventions:
   number → uuid through the cached `["pulls", repoId]` list (`pulls/[number]/page.tsx:33-36`).
 - `["reviews", prId]` is shared between the PR list's findings popover and the PR detail page.
 
-### Live runs — SSE (`useRunEvents`, `hooks/reviews.ts:168`)
+### Live runs — SSE (`useRunEvents`, `hooks/reviews.ts:224`)
 
 Opens one `EventSource(${API_BASE}/runs/${runId}/events)` per run id, listens to `onmessage`
-plus named events `info|tool|result|error`, appends parsed `RunEvent`s, and toasts on `error`.
-`es.onerror` closes the stream; when all are closed `running` flips to `false`. Consumers
-(`RunStatus`) treat that transition as "run done" and invalidate `pr-active-runs`, `pr-runs`, `reviews`.
+plus named events `info|tool|result|error`, appends parsed `RunEvent`s (de-duplicated by `seq`,
+because the server replays the buffer on every connect), and toasts on `error`.
+A stream ends when the server sends the terminal `event: done` (run finished), or when
+`readyState === CLOSED`. A transient drop (`onerror` with `CONNECTING`) keeps EventSource's
+auto-reconnect; a reconnect that only replays old events is treated as a finished run (fallback for
+runs that ended while disconnected). When all streams have ended `running` flips to `false`;
+`RunStatus` fires `onDone` **once** on that true→false transition, and the PR detail view then
+invalidates `pr-active-runs` / `pr-runs` via `useInvalidatePrRuns` and refetches reviews.
 
 ## 4. Component organisation
 
@@ -109,7 +113,7 @@ src/app/<route>/page.tsx                 thin route entry (params, ?query, state
 src/app/<route>/_components/<Name>/      Name.tsx · index.ts · styles.ts · constants.ts · helpers.ts · Name.test.tsx
 src/app/<route>/_components/<Name>/_components/<Child>/   nested private children
 src/components/<kebab-name>/             cross-route shared: app-shell, page-shell, diff-viewer,
-                                         run-cost-badge, severity-counts, repo-not-found, mermaid-diagram, showcase
+                                         run-cost-badge, severity-counts, repo-not-found, confirm-dialog, showcase
 src/lib/                                 api, hooks, providers, pure helpers (findings.ts, format-cost.ts, github-urls.ts …)
 src/vendor/ui        (@devdigest/ui)     vendored design system: primitives, kit (Drawer, Tabs, Dropdown…), shell (AppFrame, Sidebar), icons, styles.css
 src/vendor/shared    (@devdigest/shared) vendored Zod contracts + types

@@ -3,9 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, Icon, FormField, TextInput } from "@devdigest/ui";
-import { useTestConnection, useSecretsStatus } from "../../../../../../../lib/hooks";
-import { ApiError } from "../../../../../../../lib/api";
-import type { ConnTestProvider } from "../../../../../../../lib/types";
+import { useTestConnection, useSecretsStatus } from "@/lib/hooks/core";
+import { ApiError } from "@/lib/api";
+import type { ConnTestProvider } from "@/lib/types";
 import { SectionTitle } from "../SectionTitle";
 import { KEY_ROWS } from "./constants";
 import { s } from "./styles";
@@ -60,7 +60,16 @@ function KeyRow({
             type={reveal ? "text" : "password"}
             placeholder={t("apiKeys.placeholder")}
             suffix={
-              <Icon.EyeOff size={14} style={s.revealIcon} onClick={() => setReveal((r) => !r)} />
+              <button
+                type="button"
+                aria-pressed={reveal}
+                aria-label={t("apiKeys.revealKey")}
+                title={t("apiKeys.revealKey")}
+                onClick={() => setReveal((r) => !r)}
+                style={s.revealBtn}
+              >
+                {reveal ? <Icon.Eye size={14} /> : <Icon.EyeOff size={14} />}
+              </button>
             }
           />
         </div>

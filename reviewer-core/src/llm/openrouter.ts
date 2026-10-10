@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { z } from 'zod';
 import type {
   LLMProvider,
   ModelInfo,
@@ -23,6 +24,35 @@ import { toJsonSchema, parseWithRepair } from './structured.js';
  */
 
 const NOT_SUPPORTED = 'OpenRouterProvider only implements completeStructured';
+
+/** Max chars of schema issues quoted in a thrown error (keeps logs readable). */
+const MAX_ERROR_DETAIL_CHARS = 500;
+
+/**
+ * Shape of OpenRouter `GET /models` we rely on — parsed at the adapter edge so
+ * a changed/garbled upstream payload fails loudly instead of producing NaN
+ * prices or `undefined` ids. Unknown fields pass through untouched.
+ */
+const OpenRouterModel = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().nullish(),
+    context_length: z.number().nullish(),
+    pricing: z
+      .object({ prompt: z.string().nullish(), completion: z.string().nullish() })
+      .passthrough()
+      .nullish(),
+  })
+  .passthrough();
+const OpenRouterModelsResponse = z.object({ data: z.array(OpenRouterModel) }).passthrough();
+
+function formatIssues(err: z.ZodError): string {
+  return err.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
+}
+
+function truncate(s: string, max = MAX_ERROR_DETAIL_CHARS): string {
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
 
 export interface OpenRouterProviderOptions {
   /** OpenAI-compatible base URL (default: OpenRouter). */
@@ -64,6 +94,7 @@ export class OpenRouterProvider implements LLMProvider {
     let tokensOut = 0;
     let costFromApi: number | null = null;
     let lastRaw = '';
+    let lastError = '';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const res = await this.client.chat.completions.create({
@@ -109,10 +140,14 @@ export class OpenRouterProvider implements LLMProvider {
           attempts: attempt,
         };
       }
+      lastError = parsed.error;
       messages.push({ role: 'assistant', content: lastRaw });
       messages.push({ role: 'user', content: parsed.repromptMessage });
     }
-    throw new Error(`OpenRouter structured output failed schema validation for ${req.schemaName}`);
+    throw new Error(
+      `OpenRouter structured output failed schema validation for ${req.schemaName}` +
+        (lastError ? `: ${truncate(lastError.replace(/\n/g, ' '))}` : ''),
+    );
   }
 
   /**
@@ -125,15 +160,13 @@ export class OpenRouterProvider implements LLMProvider {
       headers: { Authorization: `Bearer ${this.apiKey}` },
     });
     if (!res.ok) throw new Error(`OpenRouter /models returned ${res.status}`);
-    const json = (await res.json()) as {
-      data?: Array<{
-        id: string;
-        name?: string;
-        context_length?: number;
-        pricing?: { prompt?: string; completion?: string };
-      }>;
-    };
-    const models: ModelInfo[] = (json.data ?? []).map((m) => {
+    const parsedBody = OpenRouterModelsResponse.safeParse(await res.json());
+    if (!parsedBody.success) {
+      throw new Error(
+        `OpenRouter /models returned an unexpected shape: ${truncate(formatIssues(parsedBody.error))}`,
+      );
+    }
+    const models: ModelInfo[] = parsedBody.data.data.map((m) => {
       const prompt = Number(m.pricing?.prompt);
       const completion = Number(m.pricing?.completion);
       // OpenRouter uses -1 as a sentinel for variable-priced router pseudo-models

@@ -108,7 +108,7 @@ export type ConnTestProvider = z.infer<typeof ConnTestProvider>;
 
 export const ConnTestRequest = z.object({
   provider: ConnTestProvider,
-  /** Optional API key/PAT to persist and then test (BYO key from the UI). */
+  /** Optional API key/PAT to test; persisted only if the test succeeds (BYO key from the UI). */
   key: z.string().min(1).optional(),
 });
 export type ConnTestRequest = z.infer<typeof ConnTestRequest>;

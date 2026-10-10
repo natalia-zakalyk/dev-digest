@@ -2,10 +2,11 @@ import type { CSSProperties } from "react";
 
 /** Co-located styles for AgentCard (extracted from inline styles). */
 export const s = {
-  card: (active: boolean, enabled: boolean): CSSProperties => ({
+  card: (active: boolean, enabled: boolean, linked: boolean): CSSProperties => ({
+    position: "relative",
     padding: 14,
     borderRadius: 8,
-    cursor: "pointer",
+    cursor: linked ? "pointer" : "default",
     border: "1px solid " + (active ? "var(--border-strong)" : "var(--border)"),
     background: active ? "var(--bg-hover)" : "var(--bg-elevated)",
     opacity: enabled ? 1 : 0.6,
@@ -30,6 +31,19 @@ export const s = {
     overflow: "hidden",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
+  /** Sits above the stretched link's overlay so it stays clickable. */
+  raised: { position: "relative", zIndex: 1, display: "inline-flex" } satisfies CSSProperties,
+  deleteBtn: (pending: boolean): CSSProperties => ({
+    position: "relative",
+    zIndex: 1,
+    background: "none",
+    border: "none",
+    cursor: pending ? "not-allowed" : "pointer",
+    color: "var(--text-muted)",
+    display: "inline-flex",
+    padding: 4,
+  }),
+  spinning: { animation: "ddspin 1s linear infinite" } satisfies CSSProperties,
   description: {
     fontSize: 13,
     color: "var(--text-muted)",

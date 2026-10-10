@@ -13,7 +13,7 @@
 | "If changes are trivial, say so rather than forcing a lesson" | softaworks/agent-toolkit — lesson-learned |
 | Gotcha archetypes (same value two names, append-only table, misleading 200); description = when to trigger, with trigger phrases; don't state the obvious | Anthropic — Lessons from building Claude Code: how we use skills |
 | Third-person description, what + when, ≤1024 chars; concise; consistent terminology; checklist workflows; ≥3 evaluations | Anthropic — Skill authoring best practices |
-| Nested CLAUDE.md loads on demand → read INSIGHTS.md explicitly; contradicting instructions get picked arbitrarily | Claude Code docs — memory |
+| Nested AGENTS.md loads on demand → read INSIGHTS.md explicitly; contradicting instructions get picked arbitrarily | Claude Code docs — memory |
 | One-line imperative entries; "add to …" trigger phrasing | dev.to/evoleinik — CLAUDE.md persistent memory |
 | Deterministic append script + PreToolUse guard (scripts beat markdown for checks; skill-scoped hooks) | MindStudio — claude-code-skills-code-scripts-vs-markdown-instructions; Anthropic blog (`/careful`, `/freeze` on-demand hooks); Claude Code docs — hooks in skills |
 | Stop hook for reliable capture (deferred to L06) | MindStudio — compounding-knowledge-loop, obsidian-hooks, skills-vs-hooks |

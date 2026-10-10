@@ -1,3 +1,3 @@
-export * from "./SeverityCounts";
-export * from "./FindingsPopover";
-export * from "./FindingsSeverity";
+export { SeverityCounts } from "./SeverityCounts";
+export { FindingsPopover } from "./FindingsPopover";
+export { FindingsSeverity, CLOSE_DELAY_MS } from "./FindingsSeverity";

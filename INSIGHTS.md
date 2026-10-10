@@ -17,6 +17,9 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 ## Tool & Library Notes
 - 2026-10-07 — A module's CLAUDE.md (and its `@INSIGHTS.md`) loads only after Claude touches files in that folder, not at session start from the root → read `<module>/INSIGHTS.md` explicitly before answering [supersedes the same entry without file:line] (CLAUDE.md:65)
 - 2026-10-07 — Once `engineering-insights` is invoked, its PreToolUse hook blocks Write/Edit on every `INSIGHTS*.md` for the rest of the session → do the monthly prune by hand or in a session where the skill wasn't invoked [supersedes the same entry without file:line] (.claude/skills/engineering-insights/SKILL.md:6)
+- 2026-10-10 — Project instructions are `AGENTS.md` (root + each module), no CLAUDE.md/symlinks; Claude Code ≥2.1.277 reads AGENTS.md natively (nested ones lazily, `@` imports expanded) but ONLY if no CLAUDE.md/CLAUDE.local.md exists in that dir or above → never add a CLAUDE.md (it silently disables AGENTS.md); older `(CLAUDE.md:NN)` pointers and 'Imported into CLAUDE.md' headers now mean AGENTS.md (AGENTS.md:10, code.claude.com/docs/en/memory.md#agents-md)
+- 2026-10-10 — Background subagents spawned while the session is in plan mode stay read-only even after ExitPlanMode, and resuming them via SendMessage doesn't lift it → exit plan mode BEFORE spawning implementation agents, or spawn fresh ones after (AGENTS.md:46)
+- 2026-10-11 — Local git is 2.15: no `git init -b`, `git switch`, `git restore`; and Node 22.14 `node --test <dir>` fails with MODULE_NOT_FOUND → in scripts/tests use `git init` + `git symbolic-ref HEAD refs/heads/main` and pass test files, not dirs, to node --test (.claude/skills/pr-self-review/scripts/pr-self-review.test.mjs:28)
 
 ## Recurring Errors & Fixes
 

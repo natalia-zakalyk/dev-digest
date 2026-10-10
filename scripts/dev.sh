@@ -30,12 +30,20 @@ for arg in "$@"; do
   esac
 done
 
-log()  { printf '\033[1;36m▸ %s\033[0m\n' "$*"; }
-warn() { printf '\033[1;33m! %s\033[0m\n' "$*"; }
+# shellcheck source=scripts/lib.sh
+source "$ROOT/scripts/lib.sh"
 
 # --- prerequisites -----------------------------------------------------------
 command -v docker >/dev/null || { echo "docker not found"; exit 1; }
 command -v pnpm   >/dev/null || { echo "pnpm not found (npm i -g pnpm)"; exit 1; }
+
+# Fail fast (before docker/install/migrate) if another stack holds the dev ports.
+if [ "$DB_ONLY" -eq 0 ]; then
+  if [ "$RUN_CLIENT" -eq 1 ]; then require_free_ports 3001 3000; else require_free_ports 3001; fi
+fi
+
+# --- git hooks (pr-self-review pre-push gate; never fatal for the dev stack) ---
+"$ROOT/scripts/install-git-hooks.sh" || warn "git hooks not installed — see scripts/install-git-hooks.sh"
 
 # --- env files ---------------------------------------------------------------
 for dir in server client; do
@@ -70,7 +78,7 @@ log "Postgres healthy"
 install_if_needed() {
   if [ ! -d "$1/node_modules" ]; then
     log "installing deps in $1"
-    (cd "$1" && pnpm install)
+    (cd "$1" && pnpm install --frozen-lockfile)
   fi
 }
 install_if_needed server
@@ -95,9 +103,12 @@ fi
 
 # --- dev servers -------------------------------------------------------------
 SERVER_PID=""
+CLIENT_PID=""
 cleanup() {
   log "shutting down dev servers (Postgres stays up; stop it with: docker compose down)"
-  [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true
+  # `pnpm dev` runs tsx/next as grandchildren of the subshell — kill the whole tree.
+  kill_tree "$CLIENT_PID"
+  kill_tree "$SERVER_PID"
 }
 trap cleanup EXIT INT TERM
 
@@ -107,7 +118,9 @@ SERVER_PID=$!
 
 if [ "$RUN_CLIENT" -eq 1 ]; then
   log "starting web on :3000 (client) — Ctrl-C to stop both"
-  (cd client && pnpm dev)
+  (cd client && pnpm dev) &
+  CLIENT_PID=$!
+  wait "$CLIENT_PID"
 else
   log "API running (PID $SERVER_PID) — Ctrl-C to stop"
   wait "$SERVER_PID"

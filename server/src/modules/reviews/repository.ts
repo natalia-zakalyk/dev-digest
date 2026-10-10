@@ -1,4 +1,4 @@
-import type { Db } from '../../db/client.js';
+import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
 
@@ -23,7 +23,16 @@ import * as runRepo from './repository/run.repo.js';
 import * as pullRepo from './repository/pull.repo.js';
 
 export class ReviewRepository {
-  constructor(private db: Db) {}
+  constructor(private db: DbExecutor) {}
+
+  /**
+   * Run `fn` in ONE database transaction. `fn` gets a repository bound to the
+   * transaction, so the caller (a service/executor) composes several writes
+   * atomically without importing Drizzle. Nested calls become savepoints.
+   */
+  transaction<T>(fn: (repo: ReviewRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new ReviewRepository(tx)));
+  }
 
   // ---- PR lookup (workspace-scoped) --------------------------------------
 
@@ -82,14 +91,21 @@ export class ReviewRepository {
     return runRepo.listRunsForPull(this.db, workspaceId, prId);
   }
 
-  /** Delete one agent run (+ its trace via FK cascade). Workspace-scoped. */
+  /** Delete one agent run + its trace, review and findings (all via FK
+   *  cascade). Workspace-scoped. */
   deleteAgentRun(workspaceId: string, runId: string): Promise<boolean> {
     return runRepo.deleteAgentRun(this.db, workspaceId, runId);
   }
 
-  /** Mark a still-running run as cancelled (no-op if it already finished). */
-  cancelRunIfRunning(runId: string): Promise<boolean> {
-    return runRepo.cancelRunIfRunning(this.db, runId);
+  /** Does this run belong to the workspace? */
+  runInWorkspace(workspaceId: string, runId: string): Promise<boolean> {
+    return runRepo.runInWorkspace(this.db, workspaceId, runId);
+  }
+
+  /** Mark a still-running run as cancelled (no-op if it already finished or
+   *  is not in the workspace). */
+  cancelRunIfRunning(workspaceId: string, runId: string): Promise<boolean> {
+    return runRepo.cancelRunIfRunning(this.db, workspaceId, runId);
   }
 
   /** On boot: any run still 'running' is orphaned (its process died / restarted),
@@ -180,7 +196,8 @@ export class ReviewRepository {
     return runRepo.saveRunTrace(this.db, runId, trace);
   }
 
-  getRunTrace(runId: string): Promise<RunTrace | undefined> {
-    return runRepo.getRunTrace(this.db, runId);
+  /** The run's trace, only when the run belongs to `workspaceId`. */
+  getRunTrace(workspaceId: string, runId: string): Promise<RunTrace | undefined> {
+    return runRepo.getRunTrace(this.db, workspaceId, runId);
   }
 }

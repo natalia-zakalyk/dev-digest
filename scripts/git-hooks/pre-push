@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# git pre-push hook → the pr-self-review gate. Installed by scripts/install-git-hooks.sh
+# (core.hooksPath=scripts/git-hooks). Blocks the push unless the last /pr-self-review
+# report covers exactly the pushed content and has no CRITICAL finding.
+# Bypass (deliberate, visible): git push --no-verify
+
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+GATE="$ROOT/.claude/skills/pr-self-review/scripts/pre-push.mjs"
+
+command -v node >/dev/null 2>&1 || { echo "pre-push: node not found — cannot run the pr-self-review gate" >&2; exit 1; }
+[ -f "$GATE" ] || { echo "pre-push: $GATE missing — cannot run the pr-self-review gate" >&2; exit 1; }
+
+exec node "$GATE" "$@"

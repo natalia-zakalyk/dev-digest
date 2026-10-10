@@ -3,7 +3,7 @@
 "use client";
 
 import React from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "../api";
 import { notify } from "../toast";
 import type {
@@ -23,14 +23,37 @@ export interface ActiveRun {
   ran_at: string | null;
 }
 
+/** Poll interval (ms) for active runs / run history while anything is running. */
+const RUN_POLL_MS = 4000;
+
+/** Query options (key + fn together) for a PR's in-flight runs. */
+export const prActiveRunsOptions = (prId: string) =>
+  queryOptions({
+    queryKey: ["pr-active-runs", prId] as const,
+    queryFn: () => api.get<ActiveRun[]>(`/pulls/${prId}/runs/active`),
+  });
+
+/** Query options for a PR's full run history (every agent_runs row). */
+export const prRunsOptions = (prId: string) =>
+  queryOptions({
+    queryKey: ["pr-runs", prId] as const,
+    queryFn: () => api.get<RunSummary[]>(`/pulls/${prId}/runs`),
+  });
+
+/** Query options for a PR's persisted reviews + findings. */
+export const prReviewsOptions = (prId: string) =>
+  queryOptions({
+    queryKey: ["reviews", prId] as const,
+    queryFn: () => api.get<ReviewRecord[]>(`/pulls/${prId}/reviews`),
+  });
+
 /** In-flight runs for a PR, from the server (agent_runs where status='running').
    Survives reloads/devices; polls while anything is running so it self-clears. */
 export function usePrActiveRuns(prId: string | null | undefined) {
   return useQuery({
-    queryKey: ["pr-active-runs", prId],
-    queryFn: () => api.get<ActiveRun[]>(`/pulls/${prId}/runs/active`),
+    ...prActiveRunsOptions(prId ?? ""),
     enabled: !!prId,
-    refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? 4000 : false),
+    refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? RUN_POLL_MS : false),
   });
 }
 
@@ -39,21 +62,39 @@ export function usePrActiveRuns(prId: string | null | undefined) {
    reload (DB-backed). Polls while anything is running so it self-updates. */
 export function usePrRuns(prId: string | null | undefined) {
   return useQuery({
-    queryKey: ["pr-runs", prId],
-    queryFn: () => api.get<RunSummary[]>(`/pulls/${prId}/runs`),
+    ...prRunsOptions(prId ?? ""),
     enabled: !!prId,
     refetchInterval: (query) =>
-      (query.state.data ?? []).some((r) => r.status === "running") ? 4000 : false,
+      (query.state.data ?? []).some((r) => r.status === "running") ? RUN_POLL_MS : false,
   });
 }
 
 // ---- Persisted reviews + findings for a PR ----
 export function usePrReviews(prId: string | null | undefined) {
-  return useQuery({
-    queryKey: ["reviews", prId],
-    queryFn: () => api.get<ReviewRecord[]>(`/pulls/${prId}/reviews`),
-    enabled: !!prId,
-  });
+  return useQuery({ ...prReviewsOptions(prId ?? ""), enabled: !!prId });
+}
+
+/**
+ * Cache invalidation for a PR's run state, so screens never build key tuples.
+ * `activeRuns` — after starting runs; `runSettled` — when live runs finish
+ * (done OR failed): refresh active runs, run history and reviews together.
+ */
+export function useInvalidatePrRuns(prId: string | null | undefined) {
+  const qc = useQueryClient();
+  return React.useMemo(
+    () => ({
+      activeRuns: () => {
+        if (prId) void qc.invalidateQueries({ queryKey: prActiveRunsOptions(prId).queryKey });
+      },
+      runSettled: () => {
+        if (!prId) return;
+        void qc.invalidateQueries({ queryKey: prActiveRunsOptions(prId).queryKey });
+        void qc.invalidateQueries({ queryKey: prRunsOptions(prId).queryKey });
+        void qc.invalidateQueries({ queryKey: prReviewsOptions(prId).queryKey });
+      },
+    }),
+    [qc, prId],
+  );
 }
 
 /** Delete one run from the PR's run history (+ its trace). */
@@ -64,8 +105,9 @@ export function useDeleteRun(prId: string | null | undefined) {
     // Deleting a run also deletes the review it produced (server-side), so drop
     // both the timeline and the Review Runs list from cache.
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
-      qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      if (!prId) return;
+      void qc.invalidateQueries({ queryKey: prRunsOptions(prId).queryKey });
+      void qc.invalidateQueries({ queryKey: prReviewsOptions(prId).queryKey });
     },
   });
 }
@@ -160,10 +202,24 @@ export function useFindingAction() {
   });
 }
 
+/** Named SSE events the server emits (`event: <kind>`), see RunEventKind. */
+const RUN_EVENT_KINDS = ["info", "tool", "result", "error"] as const;
+
 /**
  * Subscribe to a run's SSE event stream. Returns the accumulated RunEvents and a
- * `running` flag (true until the stream closes). Live status for the
+ * `running` flag (true until every stream has ended). Live status for the
  * RunReviewDropdown / Live Log. Multiple runIds are subscribed in parallel.
+ *
+ * Lifecycle: the server replays the run's buffer, streams live events and, when
+ * the run completes, sends a terminal `event: done` before ending the response
+ * → we close on it. Without it (older server, or a run that ended while we were
+ * disconnected) a clean end and a network blip both reach us as `onerror` with
+ * `readyState === CONNECTING` (the browser auto-reconnects), so:
+ * - `readyState === CLOSED` (the browser gave up) → the stream is over.
+ * - CONNECTING → let EventSource reconnect. The server replays the buffer on
+ *   every connect, so events are de-duplicated by `seq`; a connection that
+ *   opened but delivered nothing new before ending is the replay-then-end of a
+ *   finished run → close it ourselves (otherwise it would reconnect forever).
  */
 export function useRunEvents(runIds: string[]) {
   const [events, setEvents] = React.useState<RunEvent[]>([]);
@@ -179,28 +235,56 @@ export function useRunEvents(runIds: string[]) {
 
     for (const runId of runIds) {
       const es = new EventSource(`${API_BASE}/runs/${runId}/events`);
-      const onMsg = (ev: MessageEvent) => {
-        try {
-          const parsed = JSON.parse(ev.data) as RunEvent;
-          setEvents((prev) => [...prev, parsed]);
-          // Runtime agent failures arrive as SSE `error` events (not as a
-          // mutation/query error), so the global error toast never sees them —
-          // surface them here so the user gets a notification without a reload.
-          if (parsed.kind === "error" && parsed.msg) notify.error(parsed.msg);
-        } catch {
-          /* ignore non-JSON keepalive frames (and dataless native error events) */
-        }
-      };
-      // The server tags events with kind as the SSE `event:` name AND emits them
-      // as default messages too in some clients — listen broadly.
-      es.onmessage = onMsg;
-      for (const kind of ["info", "tool", "result", "error"]) {
-        es.addEventListener(kind, onMsg as EventListener);
-      }
-      es.onerror = () => {
+      let lastSeq = 0;
+      let opened = false;
+      let freshSinceOpen = false;
+      let ended = false;
+
+      const end = () => {
         es.close();
+        if (ended) return;
+        ended = true;
         open -= 1;
         if (open <= 0) setRunning(false);
+      };
+
+      const onMsg = (ev: MessageEvent) => {
+        let parsed: RunEvent;
+        try {
+          parsed = JSON.parse(ev.data) as RunEvent;
+        } catch {
+          return; /* ignore non-JSON keepalive frames (and dataless native error events) */
+        }
+        // Replayed on reconnect → already seen.
+        if (typeof parsed.seq === "number") {
+          if (parsed.seq <= lastSeq) return;
+          lastSeq = parsed.seq;
+        }
+        freshSinceOpen = true;
+        setEvents((prev) => [...prev, parsed]);
+        // Runtime agent failures arrive as SSE `error` events (not as a
+        // mutation/query error), so the global error toast never sees them —
+        // surface them here so the user gets a notification without a reload.
+        if (parsed.kind === "error" && parsed.msg) notify.error(parsed.msg);
+      };
+      // The server tags events with kind as the SSE `event:` name AND emits them
+      // as default messages too in some clients — listen broadly (seq dedupes).
+      es.onmessage = onMsg;
+      for (const kind of RUN_EVENT_KINDS) {
+        es.addEventListener(kind, onMsg as EventListener);
+      }
+      // Terminal marker from the server: the run finished → stop, no reconnect.
+      es.addEventListener("done", () => end());
+      es.onopen = () => {
+        opened = true;
+        freshSinceOpen = false;
+      };
+      es.onerror = () => {
+        if (es.readyState === EventSource.CLOSED) return end();
+        // CONNECTING: transient drop → keep the auto-reconnect, unless this
+        // connection was just the replay of an already-finished run.
+        if (opened && !freshSinceOpen) return end();
+        opened = false;
       };
       sources.push(es);
     }

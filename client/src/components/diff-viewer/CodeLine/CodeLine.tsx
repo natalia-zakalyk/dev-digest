@@ -1,8 +1,11 @@
 /* CodeLine — one rendered diff line: gutter number, +/- sign, text, plus the
-   hover "+" affordance, any anchored comment threads, and an inline composer. */
+   "+" comment affordance (revealed on row hover or keyboard focus via the
+   `dd-line-comment` CSS rule in globals.css), any anchored comment threads, and
+   an inline composer. */
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
 import { s, lineRowFor, lineSignFor } from "../styles";
@@ -20,7 +23,7 @@ export function CodeLine({
   threads: CommentThread[];
   commenting?: DiffCommentApi;
 }) {
-  const [hover, setHover] = React.useState(false);
+  const t = useTranslations("shell");
   const [composing, setComposing] = React.useState(false);
 
   if (ln.kind === "hunk") {
@@ -33,21 +36,18 @@ export function CodeLine({
 
   const sign = ln.kind === "add" ? "+" : ln.kind === "del" ? "−" : "";
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
-  const showAdd = hover && !!target && !composing;
+  const showAdd = !!target && !composing;
 
   return (
-    <div
-      style={cs.rowWrap}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div className="dd-code-line" style={cs.rowWrap}>
       <div style={lineRowFor(ln.kind)}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
-          {showAdd && target && (
+          {showAdd && (
             <button
               type="button"
-              title="Add a comment on this line"
-              aria-label="Add a comment on this line"
+              className="dd-line-comment"
+              title={t("diffViewer.addComment")}
+              aria-label={t("diffViewer.addComment")}
               onClick={() => setComposing(true)}
               style={cs.addBtn}
             >

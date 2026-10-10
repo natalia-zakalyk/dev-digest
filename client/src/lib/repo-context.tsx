@@ -4,7 +4,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
-import { useRepos } from "./hooks";
+import { useRepos } from "./hooks/core";
 import type { Repo } from "./types";
 
 const RepoCtx = React.createContext<{
@@ -14,6 +14,8 @@ const RepoCtx = React.createContext<{
   activeRepo: Repo | null;
   reposLoaded: boolean;
 }>({ repoId: null, setRepoId: () => {}, repos: [], activeRepo: null, reposLoaded: false });
+
+const EMPTY_REPOS: Repo[] = [];
 
 function repoIdFromPath(pathname: string | null): string | null {
   if (!pathname) return null;
@@ -43,13 +45,17 @@ export function RepoProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const list = repos ?? [];
   const fromPath = repoIdFromPath(pathname);
-  const repoId = fromPath ?? stored ?? list[0]?.id ?? null;
-  const activeRepo = list.find((r) => r.id === repoId) ?? null;
+  // Memoised so consumers (the whole shell) only re-render when a field changes.
+  const value = React.useMemo(() => {
+    const list = repos ?? EMPTY_REPOS;
+    const repoId = fromPath ?? stored ?? list[0]?.id ?? null;
+    const activeRepo = list.find((r) => r.id === repoId) ?? null;
+    return { repoId, setRepoId, repos: list, activeRepo, reposLoaded };
+  }, [repos, fromPath, stored, setRepoId, reposLoaded]);
 
   return (
-    <RepoCtx.Provider value={{ repoId, setRepoId, repos: list, activeRepo, reposLoaded }}>
+    <RepoCtx.Provider value={value}>
       {children}
     </RepoCtx.Provider>
   );

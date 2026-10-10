@@ -16,6 +16,8 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 - 2026-10-07 — Server boot needs `reviewer-core/node_modules` installed — it compiles reviewer-core source via path alias [supersedes the same entry without file:line] (scripts/dev.sh:78, e993f25)
 - 2026-10-07 — `getRunTrace` returns the stored `run_traces` jsonb cast to `RunTrace` without parsing, and GET routes have no zod response schema → any new field on `RunStats`/`RunTrace` must be `.nullish()` (old traces lack it) and clients must handle `undefined` [supersedes the same entry without file:line] (server/src/modules/reviews/repository/run.repo.ts:187)
 - 2026-10-07 — Seeded demo reviews have `agent_id` and `run_id` NULL → they never appear on the run timeline; PR-list FINDINGS skip them once the PR has any agent review [supersedes the same entry without file:line] — replaces both seeded-review lines (server/src/modules/pulls/status.ts:41)
+- 2026-10-10 — SSE /runs/:id/events now ends a completed run with a terminal `event: done`; without it a clean end looks like a network blip and EventSource reconnects forever while the server replays the whole buffer → clients must close on `done` and dedupe by seq (server/src/modules/reviews/routes.ts:93)
+- 2026-10-11 — 'Never edit applied migrations' does not cover `migrations/meta/_journal.json`: `pnpm db:generate` legitimately appends an entry to it (plus a new NNNN_snapshot.json) → a check for edited migrations must allow append-only journal changes and only flag edits to existing .sql/snapshot files or removed journal entries (.claude/skills/pr-self-review/scripts/run-checks.mjs:91)
 
 ## Tool & Library Notes
 

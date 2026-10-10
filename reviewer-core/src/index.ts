@@ -20,7 +20,13 @@ export {
 } from './prompt.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
-export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
+export {
+  groundFindings,
+  groundingSummary,
+  MAX_FINDING_SPAN_LINES,
+  type GroundingResult,
+  type GroundingOptions,
+} from './grounding.js';
 
 // Structured-output helpers (Zod → JSON Schema + parse-with-repair).
 export {
@@ -39,6 +45,7 @@ export {
   reviewPullRequest,
   DEFAULT_MAP_THRESHOLD_LINES,
   DEFAULT_REVIEW_MAX_RETRIES,
+  DEFAULT_REVIEW_MAX_TOKENS,
   type ReviewInput,
   type ReviewOutcome,
   type ReviewEvent,

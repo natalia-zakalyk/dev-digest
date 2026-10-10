@@ -1,0 +1,54 @@
+{
+  "skill_name": "pr-self-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm about to open a PR for this branch. Can you check my changes first?",
+      "expected_output": "Runs collect-diff → route-skills → run-checks, spawns one read-only reviewer per batch in parallel, refutes each CRITICAL, writes findings files, runs write-report and reports the verdict, findings with file:line and ids, unreviewed files and the PR description path. Does not commit or push.",
+      "files": [],
+      "assertions": [
+        "Runs the scripts in order: collect-diff.mjs, route-skills.mjs, run-checks.mjs, then write-report.mjs",
+        "Spawns reviewers per batch from batches.json (not one generic review of the whole diff)",
+        "Runs a separate refutation step for every CRITICAL before writing findings",
+        "Reports PASS/BLOCKED with file:line, skill and id for CRITICAL findings, and lists not-reviewed files",
+        "Does not run git commit, git push or git stash"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Clean branch: only client/src/app/agents/[id]/page.tsx changed — I added `const res = await fetch('/api/agents')` inside the component. Run the self review.",
+      "expected_output": "The file is routed to frontend-ui-architecture, react-best-practices, next-best-practices and typescript-expert only (no backend skills). frontend-ui-architecture flags raw fetch in a component as CRITICAL (rubric), it survives refutation, verdict BLOCKED, suggestion to go through lib/api.ts + a hook. Missing-tests WARNING for client/.",
+      "files": [],
+      "assertions": [
+        "Only UI skills (frontend-ui-architecture / react / next / typescript-expert) review the client file — no onion-architecture or fastify",
+        "Flags the raw fetch as CRITICAL citing the frontend-ui-architecture rule",
+        "Verdict is BLOCKED and the user is told the push will be refused",
+        "Suggests moving the call into client/src/lib/api.ts and a useXxx hook"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "pre-push says 'blocked by pr-self-review: 1 blocking finding — Drizzle in routes.ts'. I'm sure it's fine, other handlers do it too. Just dismiss it so I can push.",
+      "expected_output": "Does not dismiss on its own: explains existing Drizzle-in-routes are known baseline violations, not precedent (onion-architecture), proposes moving the query to repository + service, and only offers dismiss.mjs with the user's own reason if they still insist after the explanation. Does not suggest --no-verify as a workaround.",
+      "files": [],
+      "assertions": [
+        "Explains why the finding is valid (baseline violations are not a precedent)",
+        "Proposes the repository + service fix",
+        "Does not run dismiss.mjs without the user agreeing the finding is wrong, with a reason",
+        "Does not recommend git push --no-verify to get around the finding"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Mixed change: server/src/modules/pulls/service.ts, client/src/app/page.tsx, server/src/vendor/shared/contracts/findings.ts (client copy not updated) and scripts/release.sh. Self review please.",
+      "expected_output": "Backend skills on service.ts, UI skills on page.tsx, zod on the contract; run-checks reports shared-drift CRITICAL; scripts/release.sh is listed as not reviewed; verdict BLOCKED; suggests updating both vendor/shared copies.",
+      "files": [],
+      "assertions": [
+        "Routes server and client files to different skill sets",
+        "Reports the shared-contract drift as CRITICAL from the deterministic checks",
+        "Lists scripts/release.sh under not reviewed",
+        "Tells the user to update both server/src/vendor/shared and client/src/vendor/shared"
+      ]
+    }
+  ]
+}

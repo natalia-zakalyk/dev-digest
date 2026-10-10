@@ -1,5 +1,25 @@
 import type { CiFailOn, Finding, GitHubReviewPayload, Review, UnifiedDiff } from '@devdigest/shared';
-import { buildLineIndex } from '../grounding.js';
+
+/**
+ * File → set of new-side line numbers covered by hunks, for picking inline
+ * comment anchors (a single-line Set lookup). Grounding uses its own range
+ * index in `grounding.ts`.
+ */
+function buildLineIndex(diff: UnifiedDiff): Map<string, Set<number>> {
+  const idx = new Map<string, Set<number>>();
+  for (const f of diff.files) {
+    const set = new Set<number>();
+    for (const h of f.hunks) {
+      if (h.newLineNumbers && h.newLineNumbers.length > 0) {
+        for (const n of h.newLineNumbers) set.add(n);
+      } else {
+        for (let n = h.newStart; n < h.newStart + Math.max(h.newLines, 1); n++) set.add(n);
+      }
+    }
+    idx.set(f.path, set);
+  }
+  return idx;
+}
 
 /**
  * Turn a grounded Review into a GitHubReviewPayload (markdown body + optional

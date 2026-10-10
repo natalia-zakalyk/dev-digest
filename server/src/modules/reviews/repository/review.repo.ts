@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { Db } from '../../../db/client.js';
+import type { DbExecutor as Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { Finding } from '@devdigest/shared';
 import type { FindingRow, PullRow } from '../../../db/rows.js';
@@ -99,21 +99,18 @@ export async function getFinding(db: Db, findingId: string): Promise<FindingRow 
   return row;
 }
 
-/** Resolve workspace_id + pr_id for a finding (via review → pr). */
+/** Resolve workspace_id + pr_id for a finding (finding → review → pr), one join. */
 export async function findingContext(
   db: Db,
   findingId: string,
 ): Promise<{ finding: FindingRow; review: ReviewRow; pull: PullRow } | undefined> {
-  const finding = await getFinding(db, findingId);
-  if (!finding) return undefined;
-  const review = await getReview(db, finding.reviewId);
-  if (!review) return undefined;
-  const [pull] = await db
-    .select()
-    .from(t.pullRequests)
-    .where(eq(t.pullRequests.id, review.prId));
-  if (!pull) return undefined;
-  return { finding, review, pull };
+  const [row] = await db
+    .select({ finding: t.findings, review: t.reviews, pull: t.pullRequests })
+    .from(t.findings)
+    .innerJoin(t.reviews, eq(t.reviews.id, t.findings.reviewId))
+    .innerJoin(t.pullRequests, eq(t.pullRequests.id, t.reviews.prId))
+    .where(eq(t.findings.id, findingId));
+  return row;
 }
 
 export async function setFindingAccepted(

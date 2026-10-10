@@ -17,6 +17,7 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 
 ## Tool & Library Notes
 - 2026-10-09 — `run.ts` adds no step types: each `cmd` goes straight to agent-browser, flow JSON is not schema-validated (a mistyped key is silently ignored), and the failure screenshot is taken only when a command throws, not when `assert.stdoutIncludes` fails → check new flows by making them fail once on purpose (e2e/run.ts:59, e2e/run.ts:73, e2e/run.ts:86)
+- 2026-10-10 — agent-browser isn't installed globally on this machine → run scripts/e2e.sh with a PATH shim `exec npx -y agent-browser@0.39.0 "$@"` (version pinned in CI); never `pkill -f 'tsx src/server.ts'` while e2e runs — it kills the e2e API too (.github/workflows/e2e-web.yml:122)
 
 ## Recurring Errors & Fixes
 

@@ -4,7 +4,7 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunSummary, FindingRecord } from "@devdigest/shared";
@@ -112,11 +112,31 @@ describe("RunHistory — findings by severity", () => {
     expect(tooltip).toHaveTextContent("Finding 3");
     expect(tooltip).not.toHaveTextContent("Finding 1");
     expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
-    expect(screen.queryByText(/finding\(s\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/3 findings/)).not.toBeInTheDocument();
   });
 
   it("falls back to the plain count when the run's review isn't loaded", () => {
     renderRuns([run({ findings_count: 3, blockers: 0, score: 72 })], new Map());
-    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    expect(screen.getByText(/3 findings/)).toBeInTheDocument();
+  });
+
+  it("uses singular forms for one finding / one blocker", () => {
+    renderRuns([run({ findings_count: 1, blockers: 1, score: 50 })], new Map());
+    expect(screen.getByText("1 finding · 1 blocker")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — actions", () => {
+  it("delete is a real button that reports the run id; hidden while running", () => {
+    const onDelete = vi.fn();
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages, common }}>
+        <RunHistory runs={[run({}), run({ run_id: "run-2", status: "running" })]} onOpenTrace={() => {}} onDelete={onDelete} />
+      </NextIntlClientProvider>,
+    );
+    const del = screen.getAllByRole("button", { name: "Delete run" });
+    expect(del).toHaveLength(1);
+    fireEvent.click(del[0]!);
+    expect(onDelete).toHaveBeenCalledWith("run-1");
   });
 });

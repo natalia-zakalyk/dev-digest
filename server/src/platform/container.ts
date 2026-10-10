@@ -51,6 +51,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Run event bus (defaults to the process-wide singleton). */
+  runBus?: RunBus;
 }
 
 export class Container {
@@ -82,13 +84,13 @@ export class Container {
     this.db = db;
     this.secrets = overrides.secrets ?? new LocalSecretsProvider(config.secretsPath);
     this.auth = overrides.auth ?? new LocalNoAuthProvider(db);
-    this.runBus = runBus;
+    this.runBus = overrides.runBus ?? runBus;
     this.jobs = new JobRunner(db);
   }
 
   get git(): GitClient {
     if (this.overrides.git) return this.overrides.git;
-    this._git ??= new SimpleGitClient(this.config.cloneDir);
+    this._git ??= new SimpleGitClient(this.config.cloneDir, () => this.secrets.get('GITHUB_TOKEN'));
     return this._git;
   }
 
@@ -171,25 +173,38 @@ export class Container {
   }
 
   private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {
-    if (id === 'openai') {
-      const key = await this.secrets.get('OPENAI_API_KEY');
-      if (!key) throw new ConfigError('OPENAI_API_KEY is not configured');
-      return new OpenAIProvider(key);
-    }
+    const secret =
+      id === 'openai' ? 'OPENAI_API_KEY' : id === 'openrouter' ? 'OPENROUTER_API_KEY' : 'ANTHROPIC_API_KEY';
+    const key = await this.secrets.get(secret);
+    if (!key) throw new ConfigError(`${secret} is not configured`);
+    return this.llmFromKey(id, key);
+  }
+
+  private llmFromKey(id: 'openai' | 'anthropic' | 'openrouter', key: string): LLMProvider {
+    if (id === 'openai') return new OpenAIProvider(key);
     if (id === 'openrouter') {
       // Single OpenRouter provider lives in reviewer-core (shared with the CI
       // runner); inject the PriceBook so cost attribution uses LIVE OpenRouter
       // prices (with the static table as a fallback) rather than a hardcoded one.
-      const key = await this.secrets.get('OPENROUTER_API_KEY');
-      if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
       return new OpenRouterProvider(key, {
         estimateCost: (model, tokensIn, tokensOut) =>
           this.priceBook.estimate(model, tokensIn, tokensOut),
       });
     }
-    const key = await this.secrets.get('ANTHROPIC_API_KEY');
-    if (!key) throw new ConfigError('ANTHROPIC_API_KEY is not configured');
     return new AnthropicProvider(key);
+  }
+
+  /**
+   * An UNCACHED LLM provider built from a candidate key (connection test before
+   * persisting a BYO key). Injected test providers still win.
+   */
+  llmWithKey(id: 'openai' | 'anthropic' | 'openrouter', key: string): LLMProvider {
+    return this.overrides.llm?.[id] ?? this.llmFromKey(id, key);
+  }
+
+  /** An UNCACHED GitHub client for a candidate PAT (see llmWithKey). */
+  githubWithToken(token: string): GitHubClient {
+    return this.overrides.github ?? new OctokitGitHubClient(token);
   }
 
   async embedder(): Promise<Embedder> {

@@ -1,8 +1,9 @@
 import type { IconName } from "@devdigest/ui";
+import type { AgentTab } from "../../constants";
 
 /** Editor tab descriptor. `labelKey` resolves under the `agents` namespace. */
 export interface EditorTab {
-  key: string;
+  key: AgentTab;
   labelKey: string;
   icon: IconName;
 }
