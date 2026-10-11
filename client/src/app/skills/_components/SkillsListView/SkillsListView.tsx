@@ -32,18 +32,11 @@ export function SkillsListView() {
     [summaries.data],
   );
   const list = filterSkills(all, search);
-  const selected = all.find((sk) => sk.id === selectedId);
+  // Derived during render: the chosen skill, else (nothing chosen / vanished) the first one.
+  const selected = all.find((sk) => sk.id === selectedId) ?? all[0];
   const editing = overlay.kind === "edit" ? all.find((sk) => sk.id === overlay.id) : undefined;
 
-  // Auto-select the first skill when nothing (or a vanished skill) is selected.
-  React.useEffect(() => {
-    if (all.length > 0 && !all.some((sk) => sk.id === selectedId)) setSelectedId(all[0]!.id);
-  }, [all, selectedId]);
-
-  const onDeleted = (id: string) => {
-    const next = all.find((sk) => sk.id !== id);
-    setSelectedId(next ? next.id : null);
-  };
+  const onDeleted = () => setSelectedId(null);
 
   return (
     <AppShell crumb={[{ label: t("page.crumbLab") }, { label: t("page.crumbSkills") }]}>
@@ -103,7 +96,7 @@ export function SkillsListView() {
                   key={sk.id}
                   skill={sk}
                   summary={summaryById.get(sk.id)}
-                  selected={sk.id === selectedId}
+                  selected={sk.id === selected?.id}
                   onOpen={() => setSelectedId(sk.id)}
                   onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
                 />
@@ -118,7 +111,7 @@ export function SkillsListView() {
               key={selected.id}
               skill={selected}
               onEdit={() => setOverlay({ kind: "edit", id: selected.id })}
-              onDeleted={() => onDeleted(selected.id)}
+              onDeleted={onDeleted}
               onToggle={(enabled) => update.mutate({ id: selected.id, patch: { enabled } })}
             />
           ) : (

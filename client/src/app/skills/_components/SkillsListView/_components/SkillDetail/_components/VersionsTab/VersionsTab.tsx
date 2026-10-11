@@ -26,6 +26,32 @@ export function VersionsTab({ skill }: { skill: Skill }) {
   const versions = q.data;
   const current = versions?.find((v) => v.is_current);
 
+  const titles = React.useMemo(
+    () =>
+      new Map(
+        (versions ?? []).map((v, i) => {
+          const prev = versions?.[i + 1];
+          let title = t("versions.initial");
+          if (v.change_note?.trim()) {
+            title = v.change_note.trim();
+          } else if (prev) {
+            const { added, removed } = summarizeChange(prev.body, v.body);
+            title =
+              added === 0 && removed === 0
+                ? t("versions.noChanges", { previous: prev.version })
+                : t("versions.changes", { added, removed, previous: prev.version });
+          }
+          return [v.version, title] as const;
+        }),
+      ),
+    [versions, t],
+  );
+  const openVersion = versions?.find((v) => v.version === diffOpen);
+  const openDiff = React.useMemo(
+    () => (openVersion && current ? diffLines(openVersion.body, current.body) : null),
+    [openVersion, current],
+  );
+
   const handleRestore = () => {
     if (!restoring) return;
     const from = restoring.version;
@@ -61,19 +87,8 @@ export function VersionsTab({ skill }: { skill: Skill }) {
       </div>
       <p style={s.subtitle}>{t("versions.subtitle")}</p>
       <div style={s.list}>
-        {versions.map((v, i) => {
-          const prev = versions[i + 1];
+        {versions.map((v) => {
           const open = diffOpen === v.version;
-          let title = t("versions.initial");
-          if (v.change_note?.trim()) {
-            title = v.change_note.trim();
-          } else if (prev) {
-            const { added, removed } = summarizeChange(prev.body, v.body);
-            title =
-              added === 0 && removed === 0
-                ? t("versions.noChanges", { previous: prev.version })
-                : t("versions.changes", { added, removed, previous: prev.version });
-          }
           return (
             <div key={v.version} style={s.item} data-testid={`version-${v.version}`}>
               <div style={s.row}>
@@ -81,7 +96,7 @@ export function VersionsTab({ skill }: { skill: Skill }) {
                   v{v.version}
                 </span>
                 <div style={s.info}>
-                  <div style={s.rowTitle}>{title}</div>
+                  <div style={s.rowTitle}>{titles.get(v.version)}</div>
                   <div className="tnum" style={s.date}>
                     {formatDate(v.created_at)}
                   </div>
@@ -99,11 +114,11 @@ export function VersionsTab({ skill }: { skill: Skill }) {
                   </div>
                 )}
               </div>
-              {open && current && (
+              {open && openDiff && (
                 <div style={s.diff}>
                   <div style={s.diffTitle}>{t("versions.diffTitle", { version: v.version })}</div>
                   <div className="mono" style={s.diffBody}>
-                    {diffLines(v.body, current.body).map((l, k) => (
+                    {openDiff.map((l, k) => (
                       <div key={k} data-kind={l.kind} style={s.line(l.kind)}>
                         <span style={s.sign}>{SIGN[l.kind]}</span>
                         <span>{l.text}</span>

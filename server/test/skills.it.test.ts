@@ -297,6 +297,19 @@ d('skills (Testcontainers pg)', () => {
     const stats = (await app.inject({ method: 'GET', url: `/skills/${first.id}/stats` })).json();
     expect(stats.pull_frequency).toBe(100);
     expect(stats.agents.map((a: { id: string }) => a.id)).toContain(agent.id);
+
+    // The workspace-wide summary must agree with each skill's own /stats.
+    const summary: { skill_id: string; agents_count: number; pull_frequency: number | null; accept_rate: number | null }[] =
+      (await app.inject({ method: 'GET', url: '/skills/summary' })).json();
+    for (const skill of [first, second, disabled]) {
+      const s = (await app.inject({ method: 'GET', url: `/skills/${skill.id}/stats` })).json();
+      expect(summary.find((x) => x.skill_id === skill.id)).toEqual({
+        skill_id: skill.id,
+        agents_count: s.agents.length,
+        pull_frequency: s.pull_frequency,
+        accept_rate: s.accept_rate,
+      });
+    }
     await app.close();
   });
 });

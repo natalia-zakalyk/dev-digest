@@ -8,6 +8,16 @@ import { useSkillStats } from "@/lib/hooks/skills";
 import { CATEGORY_COLORS, FALLBACK_CATEGORY_COLOR } from "./constants";
 import { s } from "./styles";
 
+function Percent({ value, noData }: { value: number | null; noData: string }) {
+  if (value === null) return <>{noData}</>;
+  return (
+    <>
+      {Math.round(value)}
+      <span style={s.tileUnit}>%</span>
+    </>
+  );
+}
+
 export function StatsTab({ skillId }: { skillId: string }) {
   const t = useTranslations("skills");
   const { data, isLoading, isError, refetch } = useSkillStats(skillId);
@@ -24,15 +34,6 @@ export function StatsTab({ skillId }: { skillId: string }) {
     return <ErrorState body={t("stats.loadError")} onRetry={() => refetch()} />;
   }
 
-  const percent = (v: number | null) =>
-    v === null ? (
-      t("stats.noData")
-    ) : (
-      <>
-        {Math.round(v)}
-        <span style={s.tileUnit}>%</span>
-      </>
-    );
   const segments = data.findings_by_category.map((c) => ({
     label: c.category,
     value: c.count,
@@ -46,16 +47,16 @@ export function StatsTab({ skillId }: { skillId: string }) {
           <div style={s.tileLabel}>{t("stats.usedBy")}</div>
           <div style={s.tileValue}>
             {data.agents.length}
-            <span style={s.tileUnit}>{t("stats.agentsCount", { count: data.agents.length }).replace(/^\d+\s*/, "")}</span>
+            <span style={s.tileUnit}>{t("stats.agentsUnit", { count: data.agents.length })}</span>
           </div>
         </div>
         <div style={s.tile} title={t("stats.pullHint")}>
           <div style={s.tileLabel}>{t("stats.pullFrequency")}</div>
-          <div style={s.tileValue}>{percent(data.pull_frequency)}</div>
+          <div style={s.tileValue}><Percent value={data.pull_frequency} noData={t("stats.noData")} /></div>
         </div>
         <div style={s.tile} title={t("stats.acceptHint")}>
           <div style={s.tileLabel}>{t("stats.acceptRate")}</div>
-          <div style={s.tileValue}>{percent(data.accept_rate)}</div>
+          <div style={s.tileValue}><Percent value={data.accept_rate} noData={t("stats.noData")} /></div>
           {data.accept_rate !== null && (
             <div style={s.tileScore}>
               <CircularScore score={Math.round(data.accept_rate)} size={40} />

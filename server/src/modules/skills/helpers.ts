@@ -98,3 +98,54 @@ export function toSkillSummary(
     accept_rate: stats.accept_rate,
   };
 }
+
+/** Raw workspace-wide usage rows (see `SkillsRepository.summaryUsageSince`). */
+export interface SummaryUsageRows {
+  links: { skillId: string; agentId: string }[];
+  agentRuns: { agentId: string; runs: number }[];
+  skillRuns: { agentId: string; skillId: string; runs: number }[];
+  skillFindings: { agentId: string; skillId: string; accepted: number; dismissed: number }[];
+}
+
+/**
+ * Combine workspace-wide usage rows into one `SkillSummary` per skill (input order).
+ * Same definitions as `toSkillStats`: pull_frequency = runs of the linked agents that
+ * used the skill ÷ finished runs of the linked agents; accept_rate = accepted ÷ (accepted + dismissed).
+ */
+export function toSkillSummaries(skillIds: string[], rows: SummaryUsageRows): SkillSummary[] {
+  const agentsOf = new Map<string, Set<string>>();
+  for (const l of rows.links) {
+    const set = agentsOf.get(l.skillId) ?? new Set<string>();
+    set.add(l.agentId);
+    agentsOf.set(l.skillId, set);
+  }
+  const runsOfAgent = new Map(rows.agentRuns.map((r) => [r.agentId, r.runs]));
+
+  const sumBySkill = <T extends { agentId: string; skillId: string }>(
+    items: T[],
+    pick: (i: T) => number,
+  ): Map<string, number> => {
+    const out = new Map<string, number>();
+    for (const i of items) {
+      if (!agentsOf.get(i.skillId)?.has(i.agentId)) continue; // only runs of agents linked to the skill
+      out.set(i.skillId, (out.get(i.skillId) ?? 0) + pick(i));
+    }
+    return out;
+  };
+  const withSkill = sumBySkill(rows.skillRuns, (r) => r.runs);
+  const accepted = sumBySkill(rows.skillFindings, (f) => f.accepted);
+  const dismissed = sumBySkill(rows.skillFindings, (f) => f.dismissed);
+
+  return skillIds.map((id) => {
+    const agents = agentsOf.get(id) ?? new Set<string>();
+    let runs = 0;
+    for (const a of agents) runs += runsOfAgent.get(a) ?? 0;
+    const acc = accepted.get(id) ?? 0;
+    return {
+      skill_id: id,
+      agents_count: agents.size,
+      pull_frequency: percent(withSkill.get(id) ?? 0, runs),
+      accept_rate: percent(acc, acc + (dismissed.get(id) ?? 0)),
+    };
+  });
+}

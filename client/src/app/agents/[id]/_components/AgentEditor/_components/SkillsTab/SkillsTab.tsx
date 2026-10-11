@@ -7,19 +7,18 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Badge, Checkbox, EmptyState, ErrorState, Icon, Skeleton } from "@devdigest/ui";
+import { Badge, EmptyState, ErrorState, Icon, Skeleton } from "@devdigest/ui";
 import type { Agent, Skill } from "@devdigest/shared";
 import { useAgentSkills, useSetAgentSkills, useSkills } from "@/lib/hooks/skills";
-import { SkillTypeBadge } from "@/components/skill-type-badge";
 import { SKILLS_HREF } from "./constants";
 import { matchesFilter, moveItem, orderedSkills, toggleLinked } from "./helpers";
+import { SkillRow } from "./_components/SkillRow";
 import { s } from "./styles";
 
 export function SkillsTab({ agent }: { agent: Agent }) {
   const t = useTranslations("agents");
-  const router = useRouter();
   const skillsQuery = useSkills();
   const linksQuery = useAgentSkills(agent.id);
   const setSkills = useSetAgentSkills(agent.id);
@@ -49,70 +48,34 @@ export function SkillsTab({ agent }: { agent: Agent }) {
     move(id, e.key === "ArrowUp" ? from - 1 : from + 1);
   };
 
-  const renderRow = (sk: Skill, isLinked: boolean) => {
-    const draggable = isLinked;
-    return (
-      <li
-        key={sk.id}
-        data-testid={`skill-row-${sk.name}`}
-        draggable={draggable}
-        onDragStart={
-          draggable
-            ? (e) => {
-                setDragId(sk.id);
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", sk.id);
-              }
-            : undefined
-        }
-        onDragOver={
-          draggable && dragId
-            ? (e) => {
-                e.preventDefault();
-                if (overId !== sk.id) setOverId(sk.id);
-              }
-            : undefined
-        }
-        onDrop={draggable ? () => onDrop(sk.id) : undefined}
-        onDragEnd={() => {
+  const renderRow = (sk: Skill, isLinked: boolean) => (
+    <SkillRow
+      key={sk.id}
+      skill={sk}
+      linked={isLinked}
+      onToggle={() => save(toggleLinked(linkedIds, sk.id))}
+      drag={{
+        dragging: dragId === sk.id,
+        over: overId === sk.id && dragId !== sk.id,
+        onStart: (e) => {
+          setDragId(sk.id);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", sk.id);
+        },
+        onOver: (e) => {
+          if (!dragId) return;
+          e.preventDefault();
+          if (overId !== sk.id) setOverId(sk.id);
+        },
+        onDrop: () => onDrop(sk.id),
+        onEnd: () => {
           setDragId(null);
           setOverId(null);
-        }}
-        style={s.row({ linked: isLinked, dragging: dragId === sk.id, over: overId === sk.id && dragId !== sk.id })}
-      >
-        {isLinked ? (
-          <button
-            type="button"
-            aria-label={t("skills.dragHandle", { name: sk.name })}
-            title={t("skills.dragHandle", { name: sk.name })}
-            onKeyDown={(e) => onHandleKey(e, sk.id)}
-            style={s.handle}
-          >
-            <Icon.Menu size={14} />
-          </button>
-        ) : (
-          <span style={s.handlePlaceholder} />
-        )}
-        <Checkbox
-          checked={isLinked}
-          onChange={() => save(toggleLinked(linkedIds, sk.id))}
-          label={
-            <span className="mono" style={s.name(sk.enabled)}>
-              {sk.name}
-            </span>
-          }
-        />
-        {!sk.enabled && (
-          <Badge color="var(--text-muted)" bg="var(--bg-hover)" icon="EyeOff">
-            {t("skills.disabledGlobally")}
-          </Badge>
-        )}
-        <span style={s.typeCell}>
-          <SkillTypeBadge type={sk.type} />
-        </span>
-      </li>
-    );
-  };
+        },
+        onHandleKey: (e) => onHandleKey(e, sk.id),
+      }}
+    />
+  );
 
   const visibleLinked = linked.filter((sk) => matchesFilter(sk, filter));
   const visibleUnlinked = unlinked.filter((sk) => matchesFilter(sk, filter));
@@ -159,8 +122,11 @@ export function SkillsTab({ agent }: { agent: Agent }) {
         <EmptyState
           icon="Sparkles"
           title={t("skills.empty")}
-          cta={t("skills.emptyCta")}
-          onCta={() => router.push(SKILLS_HREF)}
+          body={
+            <Link href={SKILLS_HREF} style={s.ctaLink}>
+              {t("skills.emptyCta")}
+            </Link>
+          }
         />
       )}
       {!isLoading && !isError && total > 0 && visibleLinked.length + visibleUnlinked.length === 0 && (

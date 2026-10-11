@@ -105,7 +105,7 @@
   },
   "stats": {
     "usedBy": "Used by",
-    "agentsCount": "{count, plural, one {# agent} other {# agents}}",
+    "agentsUnit": "{count, plural, one {agent} other {agents}}",
     "pullFrequency": "Pull frequency",
     "acceptRate": "Accept rate",
     "findings": "Findings (30d)",

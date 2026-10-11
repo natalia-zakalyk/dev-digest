@@ -9,7 +9,7 @@ import type {
   UpdateSkillBody,
 } from '@devdigest/shared';
 import { SkillsRepository } from './repository.js';
-import { toSkillDto, toSkillStats, toSkillSummary, toSkillVersion } from './helpers.js';
+import { toSkillDto, toSkillStats, toSkillSummaries, toSkillVersion } from './helpers.js';
 import { STATS_WINDOW_DAYS } from './constants.js';
 import { previewSkillImport } from './domain/importer.js';
 
@@ -56,13 +56,8 @@ export class SkillsService {
   async summary(workspaceId: string): Promise<SkillSummary[]> {
     const skills = await this.repo.list(workspaceId);
     const since = new Date(Date.now() - STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-    return Promise.all(
-      skills.map(async (skill) => {
-        const agents = await this.repo.listLinkedAgents(skill.id);
-        const usage = await this.repo.usageSince(workspaceId, skill.id, agents.map((a) => a.id), since);
-        return toSkillSummary(skill.id, agents, usage);
-      }),
-    );
+    const usage = await this.repo.summaryUsageSince(workspaceId, since);
+    return toSkillSummaries(skills.map((s) => s.id), usage);
   }
 
   async create(workspaceId: string, input: CreateSkillBody): Promise<Skill> {

@@ -17,7 +17,7 @@ const skill = (id: string, name: string, over: Partial<Skill> = {}): Skill => ({
   ...over,
 });
 
-const SKILLS = [
+let SKILLS: Skill[] = [
   skill("a", "alpha"),
   skill("b", "beta", { type: "security" }),
   skill("c", "gamma", { enabled: false }),
@@ -35,12 +35,15 @@ vi.mock("@/lib/hooks/skills", () => ({
   useAgentSkills: () => ({ data: LINKS, isLoading: false, isError: false, refetch: vi.fn() }),
   useSetAgentSkills: () => ({ mutate: setMutate, isPending: false }),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { SkillsTab } from "./SkillsTab";
 
 afterEach(cleanup);
-beforeEach(() => setMutate.mockReset());
+const ORIGINAL = SKILLS;
+beforeEach(() => {
+  setMutate.mockReset();
+  SKILLS = ORIGINAL;
+});
 
 const AGENT = { id: "ag1", name: "Test Quality Reviewer" } as Agent;
 
@@ -98,5 +101,11 @@ describe("SkillsTab", () => {
     renderTab();
     fireEvent.change(screen.getByLabelText("Filter skills…"), { target: { value: "security" } });
     expect(rowNames()).toEqual(["beta"]);
+  });
+
+  it("empty state links to the Skills page", () => {
+    SKILLS = [];
+    renderTab();
+    expect(screen.getByRole("link", { name: messages.skills.emptyCta })).toHaveAttribute("href", "/skills");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toSkillStats, toSkillSummary, toSkillVersion } from '../src/modules/skills/helpers.js';
+import { toSkillStats, toSkillSummary, toSkillSummaries, toSkillVersion } from '../src/modules/skills/helpers.js';
 
 describe('toSkillStats', () => {
   it('rolls usage up into whole-percent rates and a findings total', () => {
@@ -63,5 +63,42 @@ describe('toSkillVersion change_note', () => {
     const base = { version: 1, body: 'b', createdAt: new Date('2026-05-09T00:00:00Z') };
     expect(toSkillVersion(base, 1).change_note).toBeNull();
     expect(toSkillVersion({ ...base, changeNote: 'why' }, 1).change_note).toBe('why');
+  });
+});
+
+describe('toSkillSummaries', () => {
+  it('matches the per-skill stats definitions across skills sharing agents', () => {
+    const out = toSkillSummaries(['s1', 's2', 's3'], {
+      links: [
+        { skillId: 's1', agentId: 'a' },
+        { skillId: 's1', agentId: 'b' },
+        { skillId: 's2', agentId: 'b' },
+      ],
+      agentRuns: [
+        { agentId: 'a', runs: 2 },
+        { agentId: 'b', runs: 2 },
+        { agentId: 'c', runs: 9 },
+      ],
+      skillRuns: [
+        { agentId: 'a', skillId: 's1', runs: 1 },
+        { agentId: 'b', skillId: 's1', runs: 2 },
+        { agentId: 'b', skillId: 's2', runs: 1 },
+        { agentId: 'c', skillId: 's1', runs: 9 }, // c is not linked to s1: ignored
+      ],
+      skillFindings: [
+        { agentId: 'a', skillId: 's1', accepted: 1, dismissed: 0 },
+        { agentId: 'b', skillId: 's1', accepted: 0, dismissed: 2 },
+        { agentId: 'c', skillId: 's1', accepted: 5, dismissed: 0 },
+      ],
+    });
+    expect(out).toEqual([
+      { skill_id: 's1', agents_count: 2, pull_frequency: 75, accept_rate: 33 },
+      { skill_id: 's2', agents_count: 1, pull_frequency: 50, accept_rate: null },
+      { skill_id: 's3', agents_count: 0, pull_frequency: null, accept_rate: null },
+    ]);
+  });
+
+  it('returns an empty list for no skills', () => {
+    expect(toSkillSummaries([], { links: [], agentRuns: [], skillRuns: [], skillFindings: [] })).toEqual([]);
   });
 });

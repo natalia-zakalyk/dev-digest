@@ -41,6 +41,17 @@ export interface SkillUsage {
   byCategory: { category: string; count: number }[];
 }
 
+/** Workspace-wide raw usage rows feeding `toSkillSummaries` (see `summaryUsageSince`). */
+export interface SummaryUsage {
+  links: { skillId: string; agentId: string }[];
+  /** Finished runs in the window, per agent. */
+  agentRuns: { agentId: string; runs: number }[];
+  /** Runs that had the skill in `skills_used`, per (agent, skill). */
+  skillRuns: { agentId: string; skillId: string; runs: number }[];
+  /** Accepted / dismissed findings of those runs, per (agent, skill). */
+  skillFindings: { agentId: string; skillId: string; accepted: number; dismissed: number }[];
+}
+
 export class SkillsRepository {
   constructor(private db: DbExecutor) {}
 
@@ -197,6 +208,85 @@ export class SkillsRepository {
       dismissed: findingRows.reduce((n, r) => n + r.dismissed, 0),
       byCategory: findingRows.map((r) => ({ category: r.category, count: r.count })),
     };
+  }
+
+  /**
+   * Workspace-wide usage in a constant number of queries (links, runs, findings) —
+   * same window and definitions as `usageSince`, but for every skill at once.
+   */
+  async summaryUsageSince(workspaceId: string, since: Date): Promise<SummaryUsage> {
+    const links = await this.db
+      .select({ skillId: t.agentSkills.skillId, agentId: t.agentSkills.agentId })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.skills.id, t.agentSkills.skillId))
+      .innerJoin(t.agents, eq(t.agents.id, t.agentSkills.agentId))
+      .where(eq(t.skills.workspaceId, workspaceId));
+    const agentIds = [...new Set(links.map((l) => l.agentId))];
+    if (agentIds.length === 0) return { links, agentRuns: [], skillRuns: [], skillFindings: [] };
+
+    const runScope = and(
+      eq(t.agentRuns.workspaceId, workspaceId),
+      eq(t.agentRuns.status, 'done'),
+      inArray(t.agentRuns.agentId, agentIds),
+      gte(t.agentRuns.ranAt, since),
+    );
+    // One row per skill id in the run's `skills_used` (none when absent / not an array).
+    const usedList = sql`case when jsonb_typeof(${t.runTraces.trace} -> 'prompt_assembly' -> 'skills_used') = 'array'
+      then ${t.runTraces.trace} -> 'prompt_assembly' -> 'skills_used' else '[]'::jsonb end`;
+
+    // GROUPING SETS: per-agent totals (grouping = 1) and per-(agent, skill) counts (grouping = 0).
+    const runRows = await this.db.execute<{
+      agent_id: string;
+      skill_id: string | null;
+      is_total: number;
+      runs: number;
+    }>(sql`
+      select ${t.agentRuns.agentId} as agent_id,
+             u.skill_id as skill_id,
+             grouping(u.skill_id)::int as is_total,
+             count(distinct ${t.agentRuns.id})::int as runs
+      from ${t.agentRuns}
+      left join ${t.runTraces} on ${t.runTraces.runId} = ${t.agentRuns.id}
+      left join lateral (
+        select e ->> 'id' as skill_id from jsonb_array_elements(${usedList}) e
+      ) u on true
+      where ${runScope}
+      group by grouping sets ((${t.agentRuns.agentId}), (${t.agentRuns.agentId}, u.skill_id))
+    `);
+    const agentRuns: SummaryUsage['agentRuns'] = [];
+    const skillRuns: SummaryUsage['skillRuns'] = [];
+    for (const r of runRows) {
+      if (r.is_total === 1) agentRuns.push({ agentId: r.agent_id, runs: r.runs });
+      else if (r.skill_id) skillRuns.push({ agentId: r.agent_id, skillId: r.skill_id, runs: r.runs });
+    }
+
+    const findingRows = await this.db.execute<{
+      agent_id: string;
+      skill_id: string;
+      accepted: number;
+      dismissed: number;
+    }>(sql`
+      select ${t.agentRuns.agentId} as agent_id,
+             u.skill_id as skill_id,
+             count(${t.findings.acceptedAt})::int as accepted,
+             count(${t.findings.dismissedAt})::int as dismissed
+      from ${t.findings}
+      inner join ${t.reviews} on ${t.reviews.id} = ${t.findings.reviewId}
+      inner join ${t.agentRuns} on ${t.agentRuns.id} = ${t.reviews.runId}
+      inner join ${t.runTraces} on ${t.runTraces.runId} = ${t.agentRuns.id}
+      cross join lateral (
+        select distinct e ->> 'id' as skill_id from jsonb_array_elements(${usedList}) e
+      ) u
+      where ${runScope} and u.skill_id is not null
+      group by ${t.agentRuns.agentId}, u.skill_id
+    `);
+    const skillFindings = findingRows.map((r) => ({
+      agentId: r.agent_id,
+      skillId: r.skill_id,
+      accepted: r.accepted,
+      dismissed: r.dismissed,
+    }));
+    return { links, agentRuns, skillRuns, skillFindings };
   }
 
   private async snapshotVersion(row: SkillRow, changeNote: string | null): Promise<void> {
