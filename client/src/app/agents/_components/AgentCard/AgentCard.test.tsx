@@ -70,6 +70,16 @@ describe("AgentCard (smoke)", () => {
     vi.unstubAllGlobals();
   });
 
+  it("renders the delete dialog outside the dimmed card of a disabled agent", () => {
+    renderWithIntl(<AgentCard ag={{ ...AGENT, enabled: false }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete agent" }));
+    const dialog = screen.getByRole("dialog");
+    const card = screen.getByText("Security Reviewer").closest("div[style*='opacity']");
+    expect(card).not.toBeNull();
+    // opacity < 1 on an ancestor would fade the dialog and trap its z-index
+    expect(card).not.toContainElement(dialog);
+  });
+
   it("falls back to a translated placeholder when description is empty", () => {
     renderWithIntl(<AgentCard ag={{ ...AGENT, description: "" }} />);
     expect(screen.getByText("No description")).toBeInTheDocument();

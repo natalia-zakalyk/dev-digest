@@ -36,50 +36,55 @@ export function AgentCard({
   const cancelDelete = React.useCallback(() => setConfirming(false), []);
   const handleDelete = () => del.mutate(ag.id, { onSettled: () => setConfirming(false) });
 
+  // The dialog is a sibling of the card, not a child: the card dims itself with
+  // `opacity` when the agent is disabled, which would also fade the dialog and
+  // trap its z-index in the card's stacking context.
   return (
-    <div style={s.card(!!active, ag.enabled, !!href)}>
-      <div style={s.headerRow}>
-        <div style={s.iconBox}>
-          <Icon.Cpu size={15} />
-        </div>
-        {href ? (
-          <Link
-            href={href}
-            className="dd-stretched-link"
-            aria-current={active ? "page" : undefined}
-            style={s.name}
-          >
-            {ag.name}
-          </Link>
-        ) : (
-          <span style={s.name}>{ag.name}</span>
-        )}
-        {onToggle && (
-          <div style={s.raised}>
-            <Toggle on={ag.enabled} onChange={onToggle} size={14} />
+    <>
+      <div style={s.card(!!active, ag.enabled, !!href)}>
+        <div style={s.headerRow}>
+          <div style={s.iconBox}>
+            <Icon.Cpu size={15} />
           </div>
-        )}
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          disabled={del.isPending}
-          title={t("card.delete")}
-          aria-label={t("card.delete")}
-          style={s.deleteBtn(del.isPending)}
-        >
-          <Icon.Trash size={14} style={del.isPending ? s.spinning : undefined} />
-        </button>
-      </div>
-      <div style={s.description}>{ag.description || t("card.noDescription")}</div>
-      <div style={s.metaRow}>
-        <span className="mono" style={s.modelChip(color)}>
-          {ag.model}
-        </span>
-        {skillCount != null && (
-          <Badge color="var(--text-secondary)" icon="Sparkles">
-            {t("card.skillCount", { count: skillCount })}
-          </Badge>
-        )}
+          {href ? (
+            <Link
+              href={href}
+              className="dd-stretched-link"
+              aria-current={active ? "page" : undefined}
+              style={s.name}
+            >
+              {ag.name}
+            </Link>
+          ) : (
+            <span style={s.name}>{ag.name}</span>
+          )}
+          {onToggle && (
+            <div style={s.raised}>
+              <Toggle on={ag.enabled} onChange={onToggle} size={14} />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            disabled={del.isPending}
+            title={t("card.delete")}
+            aria-label={t("card.delete")}
+            style={s.deleteBtn(del.isPending)}
+          >
+            <Icon.Trash size={14} style={del.isPending ? s.spinning : undefined} />
+          </button>
+        </div>
+        <div style={s.description}>{ag.description || t("card.noDescription")}</div>
+        <div style={s.metaRow}>
+          <span className="mono" style={s.modelChip(color)}>
+            {ag.model}
+          </span>
+          {skillCount != null && (
+            <Badge color="var(--text-secondary)" icon="Sparkles">
+              {t("card.skillCount", { count: skillCount })}
+            </Badge>
+          )}
+        </div>
       </div>
       <ConfirmDialog
         open={confirming}
@@ -91,6 +96,6 @@ export function AgentCard({
         onConfirm={handleDelete}
         onCancel={cancelDelete}
       />
-    </div>
+    </>
   );
 }
