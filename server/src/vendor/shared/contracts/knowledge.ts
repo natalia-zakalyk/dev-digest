@@ -153,10 +153,10 @@ export const SkillStats = z.object({
 });
 export type SkillStats = z.infer<typeof SkillStats>;
 
-/** GET /skills/summary — per-skill numbers for the list cards (30 days; rates 0-100, null without data). */
+/** GET /skills/usage-summary — per-skill numbers for the list cards (30 days; accept_rate is a 0-1 ratio, null without data). */
 export const SkillSummary = z.object({
   skill_id: z.string(),
-  agents_count: z.number().int(),
+  linked_agents: z.number().int(),
   pull_frequency: z.number().nullable(),
   accept_rate: z.number().nullable(),
 });
@@ -165,7 +165,7 @@ export type SkillSummary = z.infer<typeof SkillSummary>;
 /** POST /skills — create (manual or a confirmed import). */
 export const CreateSkillBody = z.object({
   name: z.string().trim().min(1).max(120),
-  description: z.string().max(2000).default(''),
+  description: z.string().min(1).max(2000),
   type: SkillType,
   body: z.string().trim().min(1).max(256 * 1024),
   source: SkillSource.optional(),

@@ -46,15 +46,15 @@ describe('toSkillSummary', () => {
     const usage = { runs: 4, runsWithSkill: 1, accepted: 1, dismissed: 3, byCategory: [{ category: 'bug', count: 4 }] };
     expect(toSkillSummary('s1', [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], usage)).toEqual({
       skill_id: 's1',
-      agents_count: 2,
+      linked_agents: 2,
       pull_frequency: 25,
-      accept_rate: 25,
+      accept_rate: 0.25,
     });
   });
 
   it('returns null rates and zero agents for an unused skill', () => {
     const empty = { runs: 0, runsWithSkill: 0, accepted: 0, dismissed: 0, byCategory: [] };
-    expect(toSkillSummary('s2', [], empty)).toEqual({ skill_id: 's2', agents_count: 0, pull_frequency: null, accept_rate: null });
+    expect(toSkillSummary('s2', [], empty)).toEqual({ skill_id: 's2', linked_agents: 0, pull_frequency: null, accept_rate: null });
   });
 });
 
@@ -92,9 +92,9 @@ describe('toSkillSummaries', () => {
       ],
     });
     expect(out).toEqual([
-      { skill_id: 's1', agents_count: 2, pull_frequency: 75, accept_rate: 33 },
-      { skill_id: 's2', agents_count: 1, pull_frequency: 50, accept_rate: null },
-      { skill_id: 's3', agents_count: 0, pull_frequency: null, accept_rate: null },
+      { skill_id: 's1', linked_agents: 2, pull_frequency: 75, accept_rate: 0.33 },
+      { skill_id: 's2', linked_agents: 1, pull_frequency: 50, accept_rate: null },
+      { skill_id: 's3', linked_agents: 0, pull_frequency: null, accept_rate: null },
     ]);
   });
 

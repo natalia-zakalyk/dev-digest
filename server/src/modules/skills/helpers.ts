@@ -93,11 +93,14 @@ export function toSkillSummary(
   const stats = toSkillStats(agents, usage);
   return {
     skill_id: skillId,
-    agents_count: agents.length,
+    linked_agents: agents.length,
     pull_frequency: stats.pull_frequency,
-    accept_rate: stats.accept_rate,
+    accept_rate: ratio(stats.accept_rate),
   };
 }
+
+/** Percent (0-100) → ratio (0-1), keeping null. */
+const ratio = (pct: number | null): number | null => (pct === null ? null : pct / 100);
 
 /** Raw workspace-wide usage rows (see `SkillsRepository.summaryUsageSince`). */
 export interface SummaryUsageRows {
@@ -143,9 +146,9 @@ export function toSkillSummaries(skillIds: string[], rows: SummaryUsageRows): Sk
     const acc = accepted.get(id) ?? 0;
     return {
       skill_id: id,
-      agents_count: agents.size,
+      linked_agents: agents.size,
       pull_frequency: percent(withSkill.get(id) ?? 0, runs),
-      accept_rate: percent(acc, acc + (dismissed.get(id) ?? 0)),
+      accept_rate: ratio(percent(acc, acc + (dismissed.get(id) ?? 0))),
     };
   });
 }

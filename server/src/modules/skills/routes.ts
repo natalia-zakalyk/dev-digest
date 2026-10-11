@@ -10,7 +10,7 @@ import { SkillsService } from './service.js';
 /**
  * L02 — skills module. Spec: server/specs/skills.md
  *   GET    /skills                  → list (workspace-scoped)
- *   GET    /skills/summary          → per-skill rollup (agents_count, pull_frequency, accept_rate)
+ *   GET    /skills/usage-summary    → per-skill rollup (linked_agents, pull_frequency, accept_rate)
  *   GET    /skills/:id              → one skill
  *   GET    /skills/:id/versions     → body snapshots, newest first
  *   GET    /skills/:id/stats        → 30-day usage (agents, pull frequency, accept rate, findings)
@@ -29,7 +29,7 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
   });
 
   // Registered before `/skills/:id` so the param route doesn't capture it.
-  app.get('/skills/summary', async (req) => {
+  app.get('/skills/usage-summary', async (req) => {
     const { workspaceId } = await getContext(app.container, req);
     return service.summary(workspaceId);
   });
