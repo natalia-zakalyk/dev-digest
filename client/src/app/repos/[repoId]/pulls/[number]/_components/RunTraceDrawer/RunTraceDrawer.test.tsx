@@ -78,3 +78,35 @@ describe("Run Trace drawer — disclosures are buttons", () => {
     expect(tool).toHaveAttribute("aria-expanded", "true");
   });
 });
+
+describe("Run Trace drawer — skills block", () => {
+  it("labels the skills block with the skill names and their token count", () => {
+    const original = TRACE.prompt_assembly;
+    TRACE.prompt_assembly = {
+      ...original,
+      skills_used: [
+        { id: "s1", name: "uncovered-branches", version: 1 },
+        { id: "s2", name: "over-mocking", version: 3 },
+      ],
+      skills_tokens: 412,
+    };
+    try {
+      renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+      fireEvent.click(screen.getByRole("button", { name: /Prompt assembly/ }));
+      expect(
+        screen.getByRole("button", {
+          name: /Skills \(dynamic\) · uncovered-branches, over-mocking · ~412 tokens/,
+        }),
+      ).toBeInTheDocument();
+    } finally {
+      TRACE.prompt_assembly = original;
+    }
+  });
+
+  it("keeps the plain label for older traces without skills_used", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /Prompt assembly/ }));
+    expect(screen.getByRole("button", { name: /^Skills \(dynamic\)/ })).toBeInTheDocument();
+    expect(screen.queryByText(/tokens$/)).not.toBeInTheDocument();
+  });
+});

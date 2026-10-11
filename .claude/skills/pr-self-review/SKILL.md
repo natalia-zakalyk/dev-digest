@@ -2,6 +2,7 @@
 name: pr-self-review
 description: "Self-review of ALL local changes before opening a GitHub PR: the branch vs main plus staged, unstaged and untracked files. Routes every changed file to the project skills that own its layer (frontend-ui-architecture / react / next on client/, onion-architecture / fastify / drizzle / postgres on server/ and reviewer-core/, zod on contracts, security on routes and api), runs one read-only reviewer per skill batch, adds deterministic checks (lint:arch, shared-contract drift, secrets, AGENTS.md 'Do not touch', missing tests) and writes a report whose verdict the git pre-push hook enforces: any CRITICAL blocks the push. Also produces a PR description. Use it whenever the user is about to open/create a PR, push a branch, asks 'review my changes', 'self review', 'pr self review', 'чи можна відкривати PR?', 'перевір мої зміни перед PR', or when the pre-push hook says 'blocked by pr-self-review'. Not for reviewing someone else's PR on GitHub (that is DevDigest itself / code-review)."
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
+disable-model-invocation: true
 metadata:
   version: "1.0.0"
   updated: "2026-10-11"

@@ -18,10 +18,12 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 - 2026-10-07 — Seeded demo reviews have `agent_id` and `run_id` NULL → they never appear on the run timeline; PR-list FINDINGS skip them once the PR has any agent review [supersedes the same entry without file:line] — replaces both seeded-review lines (server/src/modules/pulls/status.ts:41)
 - 2026-10-10 — SSE /runs/:id/events now ends a completed run with a terminal `event: done`; without it a clean end looks like a network blip and EventSource reconnects forever while the server replays the whole buffer → clients must close on `done` and dedupe by seq (server/src/modules/reviews/routes.ts:93)
 - 2026-10-11 — 'Never edit applied migrations' does not cover `migrations/meta/_journal.json`: `pnpm db:generate` legitimately appends an entry to it (plus a new NNNN_snapshot.json) → a check for edited migrations must allow append-only journal changes and only flag edits to existing .sql/snapshot files or removed journal entries (.claude/skills/pr-self-review/scripts/run-checks.mjs:91)
+- 2026-10-11 — The run executor flips `agent_runs` to `done` inside the persist transaction but writes `run_traces` AFTER it (best-effort) → `waitForPrRuns` can return before the trace exists; integration tests that read `/runs/:id/trace` must poll for it (flaked once under the full suite) (server/test/skills.it.test.ts:236)
 
 ## Tool & Library Notes
 
 ## Recurring Errors & Fixes
+- 2026-10-11 — Run-trace jsonb: `skills_used` lives at `trace->'prompt_assembly'->'skills_used'` (not the trace root) → a jsonb filter on the root silently matches nothing, so skill Stats showed 0 findings while runs had many; keep the IT assertion on /skills/:id/stats after a real run (server/src/modules/skills/repository.ts:161, server/test/skills.it.test.ts:299)
 
 ## Session Notes
 - 2026-10-07 — Run Cost Badge: re-added `agent_runs.cost_usd` (migration 0010, after 0009 dropped it); partial cost on failed runs comes from reviewer-core `onUsage` [supersedes the same entry without file:line] (server/src/db/schema/runs.ts:22, server/src/modules/reviews/run-executor.ts:216)

@@ -1,0 +1,29 @@
+diff --git a/src/routes/orders.ts b/src/routes/orders.ts
+--- a/src/routes/orders.ts
++++ b/src/routes/orders.ts
+@@ -4,20 +4,21 @@ import { z } from 'zod';
+ 
+ const CreateOrderBody = z.object({
+-  customerId: z.string().uuid(),
++  customer_id: z.string().uuid(),
+   items: z.array(z.object({ sku: z.string(), qty: z.number().int().positive() })),
+-  note: z.string().optional(),
++  note: z.string(),
++  currency: z.enum(['USD', 'EUR']),
+ });
+ 
+ const OrderResponse = z.object({
+   id: z.string(),
+-  total: z.number(),
++  totalCents: z.number().int(),
+   status: z.enum(['pending', 'paid']),
+ });
+ 
+ export default async function orderRoutes(app: FastifyInstance) {
+-  app.post('/orders', { schema: { body: CreateOrderBody, response: { 201: OrderResponse } } }, async (req, reply) => {
++  app.post('/v1/orders', { schema: { body: CreateOrderBody, response: { 201: OrderResponse } } }, async (req, reply) => {
+     const order = await createOrder(req.body);
+     reply.status(201);
+     return order;
+   });
+ }

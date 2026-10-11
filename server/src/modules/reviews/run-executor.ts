@@ -1,5 +1,5 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { Provider, Review, RunTrace, SkillUsed, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
@@ -8,6 +8,7 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { formatSkillBlock } from '../skills/index.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -190,6 +191,9 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // L02 — the agent's skills: linked AND globally enabled, in link order.
+      const skills = await this.buildSkills(agent.id, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -207,6 +211,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // L02 — one block per skill; assemblePrompt omits the section when empty.
+        ...(skills.blocks.length > 0 ? { skills: skills.blocks } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -284,7 +290,11 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: {
+          ...outcome.assembly,
+          skills_used: skills.used,
+          skills_tokens: outcome.assembly.skills ? this.container.tokenizer.count(outcome.assembly.skills) : 0,
+        },
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -335,6 +345,31 @@ export class ReviewRunExecutor {
       this.container.runBus.complete(runId);
       throw err;
     }
+  }
+
+  /**
+   * L02 — resolve the agent's skills into prompt blocks. Only linked skills that
+   * are globally enabled reach the prompt (`skills.enabled` is the master
+   * switch), in `agent_skills.order`. Logged as its own line so the Live log
+   * shows which skills went in and roughly what they cost in tokens.
+   */
+  private async buildSkills(
+    agentId: string,
+    runLog: RunLogger,
+  ): Promise<{ blocks: string[]; used: SkillUsed[] }> {
+    const linked = await this.agents.enabledSkillsForAgent(agentId);
+    if (linked.length === 0) {
+      runLog.info('skills: none attached');
+      return { blocks: [], used: [] };
+    }
+    const blocks = linked.map((l) => formatSkillBlock(l.skill));
+    const used = linked.map((l) => ({ id: l.skill.id, name: l.skill.name, version: l.skill.version }));
+    const tokens = this.container.tokenizer.count(blocks.join('\n\n'));
+    runLog.info(
+      `skills: ${linked.length} attached (${used.map((u) => u.name).join(', ')}) · ~${tokens} tokens`,
+      { skills: used, tokens },
+    );
+    return { blocks, used };
   }
 
   /**
@@ -454,7 +489,7 @@ export class ReviewRunExecutor {
         findings: 0,
         grounding,
       },
-      prompt_assembly: { system: agent.systemPrompt, skills: null, memory: null, specs: null, user: '' },
+      prompt_assembly: { system: agent.systemPrompt, skills: null, skills_used: null, memory: null, specs: null, user: '' },
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],

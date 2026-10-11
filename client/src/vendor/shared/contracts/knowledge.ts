@@ -115,7 +115,7 @@ export type MemoryItem = z.infer<typeof MemoryItem>;
 export const SkillType = z.enum(['rubric', 'convention', 'security', 'custom']);
 export type SkillType = z.infer<typeof SkillType>;
 
-export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
+export const SkillSource = z.enum(['manual', 'imported_url', 'imported_file', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
 export const Skill = z.object({
@@ -128,8 +128,84 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  created_at: z.string().nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
+
+/** One immutable body snapshot (GET /skills/:id/versions, newest first). */
+export const SkillVersion = z.object({
+  version: z.number().int(),
+  body: z.string(),
+  created_at: z.string(),
+  is_current: z.boolean(),
+  /** Short human note given when the version was saved; null on old/auto snapshots. */
+  change_note: z.string().nullish(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
+
+/** GET /skills/:id/stats — usage over the last 30 days. Rates are 0-100, null with no data. */
+export const SkillStats = z.object({
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
+  pull_frequency: z.number().nullable(),
+  accept_rate: z.number().nullable(),
+  findings_30d: z.number().int(),
+  findings_by_category: z.array(z.object({ category: z.string(), count: z.number().int() })),
+});
+export type SkillStats = z.infer<typeof SkillStats>;
+
+/** GET /skills/summary — per-skill numbers for the list cards (30 days; rates 0-100, null without data). */
+export const SkillSummary = z.object({
+  skill_id: z.string(),
+  agents_count: z.number().int(),
+  pull_frequency: z.number().nullable(),
+  accept_rate: z.number().nullable(),
+});
+export type SkillSummary = z.infer<typeof SkillSummary>;
+
+/** POST /skills — create (manual or a confirmed import). */
+export const CreateSkillBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().max(2000).default(''),
+  type: SkillType,
+  body: z.string().trim().min(1).max(256 * 1024),
+  source: SkillSource.optional(),
+  enabled: z.boolean().optional(),
+  change_note: z.string().trim().max(200).optional(),
+});
+export type CreateSkillBody = z.infer<typeof CreateSkillBody>;
+
+/** PUT /skills/:id — partial edit; a body change bumps the skill version. */
+export const UpdateSkillBody = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().max(2000).optional(),
+  type: SkillType.optional(),
+  body: z.string().trim().min(1).max(256 * 1024).optional(),
+  enabled: z.boolean().optional(),
+  /** Stored on the new version snapshot when the body changes. */
+  change_note: z.string().trim().max(200).optional(),
+});
+export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
+
+/** POST /skills/import/preview — a `.md` or `.zip` file, base64-encoded. */
+export const SkillImportRequest = z.object({
+  filename: z.string().trim().min(1).max(255),
+  content_base64: z.string().min(1),
+});
+export type SkillImportRequest = z.infer<typeof SkillImportRequest>;
+
+/** The extracted skill core shown for confirmation — nothing is persisted yet. */
+export const SkillImportPreview = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  body: z.string(),
+  /** The file the core came from (`SKILL.md` path inside a zip, or the .md name). */
+  source_file: z.string(),
+  /** Archive entries that were NOT decompressed, stored or executed. */
+  ignored_files: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
+export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
 
 export const CommunitySkill = z.object({
   name: z.string(),
@@ -188,6 +264,8 @@ export const Agent = z.object({
   // Inject repo-intel context (repo skeleton + callers + rank note) into this
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
+  /** Number of linked skills (Skills tab); absent on older payloads. */
+  skills_count: z.number().int().nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 

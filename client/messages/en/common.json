@@ -42,5 +42,18 @@
   },
   "toast": {
     "dismiss": "Dismiss"
+  },
+  "skillType": {
+    "rubric": "rubric",
+    "convention": "convention",
+    "security": "security",
+    "custom": "custom"
+  },
+  "skillSource": {
+    "manual": "Manual",
+    "imported_url": "Imported",
+    "imported_file": "Imported",
+    "extracted": "Extracted",
+    "community": "Community"
   }
 }

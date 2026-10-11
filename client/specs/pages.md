@@ -101,11 +101,17 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 - **States:** loading → skeletons · error → `ErrorState` + Retry · empty → `EmptyState`.
 - **Interactions:** client-side search; **Add agent ▾** → "Create from scratch" or a template item (Security, Performance, Mentor, Conformance, Architecture — all currently just open the blank `CreateAgentModal`); after create → `/agents/:id?tab=config`; card click (the card is a link) → `/agents/:id?tab=config`; delete asks first in a `ConfirmDialog`.
 
+## `/skills` — Skills (L02)
+See [skills.md](skills.md): grid of skill cards (global enable toggle), side preview, create/edit modal,
+import drawer (`.md` / `.zip` → preview → confirm).
+
 ## `/agents/:id` — Agent editor
-- **Query params:** `?tab` — only `config` is valid; anything else falls back to `config`.
+- **Query params:** `?tab` — `config` (default) or `skills`; anything else falls back to `config`.
 - **Data:** `useAgents()` (left list), `useAgent(id)` → `GET /agents/:id`, `useUpdateAgent`, `useProviderModels(provider)` → `GET /providers/:provider/models` (in `ConfigTab`).
 - **States:** error or missing agent → full-screen `ErrorState` + Retry · loading → skeleton editor pane.
 - **Interactions:** switch agent from the left list (keeps `?tab`), toggle enabled per card, edit config (name, description, model, system prompt, repo-intel, enabled) and save; "Run on a PR…" → `/`.
+- **Skills tab:** `useSkills` + `useAgentSkills` / `useSetAgentSkills` (`GET`/`POST /agents/:id/skills`) — link/unlink,
+  reorder (drag or Alt+↑/↓), saved immediately ([skills.md](skills.md)).
 
 ## `/settings/:section` — Settings
 - **Path param:** `section` ∈ `SETTINGS_SECTIONS` (`src/vendor/ui/nav.ts`): `api-keys` (default) · `models`. Unknown sections → `notFound()` (the server page validates the param), rendering `app/not-found.tsx`.

@@ -27,12 +27,14 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config)"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills)"]
+  SKILLS["/skills<br/>skills grid · preview · editor · import"]
   SETTINGS["/settings/:section<br/>API keys · models"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
-  AGENTS -->|"/agents · /agents/:id"| API
+  AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
+  SKILLS -->|"/skills · /skills/:id · /skills/import/preview"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
 
@@ -41,6 +43,8 @@ Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
 `_components/<Name>/` folders, each with its own `*.test.tsx`.
 
 Review signals shown across pages (specs in [`specs/`](specs/)):
+- **Skills** — reusable text-only instructions linked to agents; their block, names and tokens show in the
+  trace's Prompt assembly ([skills](specs/skills.md)).
 - **Cost** — `RunCostBadge` on the PR list, timeline and trace drawer ([run-cost-badge](specs/run-cost-badge.md)).
 - **Findings by severity** — FINDINGS column with a hover popover on the PR list, read-only icons on
   the Agent runs timeline, and severity pills + Critical/Warning/Suggestion filters in each Review

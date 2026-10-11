@@ -8,6 +8,8 @@ CI job applies the project skills (`onion-architecture`, `frontend-ui-architectu
 `pnpm lint:arch` runs in no workflow.
 
 ## Behaviour
+0. **Invocation:** manual only — `disable-model-invocation: true`, so Claude never starts it on its own; run
+   `/pr-self-review`. It still loads both the frontend and the backend skills for the files it routes.
 1. **Scope:** everything a PR from the branch would contain: `merge-base(HEAD, origin/main|main)` → working tree
    (committed + staged + unstaged) plus untracked files. Renames are tracked. Git-ignored paths are excluded.
 2. **Routing:** `skill-map.json` maps globs to skills: UI skills for `client/`, backend architecture skills for

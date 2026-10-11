@@ -72,7 +72,8 @@ flowchart TB
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
   end
   subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
+    skills["skills<br/>/skills · /skills/:id · /skills/import/preview"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -83,6 +84,9 @@ flowchart TB
   end
   HEALTH["/health (liveness) · /health/ready (DB ping → 200/503)"]
 ```
+
+Skills (L02, [spec](specs/skills.md)): text-only, workspace-scoped; an agent's linked **and** globally
+enabled skills are injected into its prompt in link order (`run-executor.ts` → reviewer-core `skills` slot).
 
 PR-list rollups (`GET /repos/:id/pulls`, computed on read in `modules/pulls/status.ts`):
 `score` = latest review · `cost_usd` = sum of every successful run ([spec](specs/run-cost-badge.md)) ·

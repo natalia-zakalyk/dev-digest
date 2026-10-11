@@ -92,6 +92,13 @@
       "when": 1791667551939,
       "tag": "0012_glossy_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791728832361,
+      "tag": "0013_abandoned_mauler",
+      "breakpoints": true
     }
   ]
 }

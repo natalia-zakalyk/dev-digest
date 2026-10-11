@@ -50,6 +50,7 @@ export function AgentSidebar({
             key={a.id}
             ag={a}
             active={a.id === activeId}
+            skillCount={a.skills_count ?? undefined}
             href={agentEditorHref(a.id, tab)}
             onToggle={(enabled) => onToggle(a.id, enabled)}
           />
