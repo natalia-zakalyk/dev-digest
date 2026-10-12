@@ -16,4 +16,4 @@ export const SKILL_MD_FILENAME = 'skill.md';
 export const DEFAULT_IMPORT_SKILL_TYPE = 'custom';
 
 /** Look-back window of the Stats tab. */
-export const STATS_WINDOW_DAYS = 30;
+export const STATS_WINDOW_DAYS = 7;
