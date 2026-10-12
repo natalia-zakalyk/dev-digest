@@ -37,6 +37,13 @@
     "deleteBody": "It is unlinked from every agent. This cannot be undone.",
     "deleteConfirm": "Delete"
   },
+  "config": {
+    "heading": "Configuration",
+    "body": "Skill body",
+    "unsaved": "unsaved",
+    "tokens": "{count} tokens",
+    "reset": "Reset"
+  },
   "editor": {
     "createTitle": "Create skill",
     "editTitle": "Edit skill",

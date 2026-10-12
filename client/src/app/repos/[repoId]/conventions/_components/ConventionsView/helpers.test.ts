@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ConventionCandidate } from "@devdigest/shared";
-import { confidenceColor, confidencePct, countByStatus, estimateTokens, filterByStatus, formatEvidence } from "./helpers";
+import { confidenceColor, confidencePct, countByStatus, filterByStatus, formatEvidence } from "./helpers";
 
 const c = (over: Partial<ConventionCandidate> = {}): ConventionCandidate => ({
   id: "1",
@@ -39,8 +39,5 @@ describe("confidence + tokens", () => {
     expect(confidenceColor(91)).toBe("var(--ok)");
     expect(confidenceColor(70)).toBe("var(--warn)");
     expect(confidenceColor(40)).toBe("var(--crit)");
-  });
-  it("estimates tokens", () => {
-    expect(estimateTokens("12345678")).toBe(2);
   });
 });

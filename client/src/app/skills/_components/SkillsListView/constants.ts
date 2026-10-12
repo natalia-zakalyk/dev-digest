@@ -9,5 +9,4 @@ export const SKILL_TYPES: readonly SkillType[] = ["rubric", "convention", "secur
 /** Which overlay is open on the Skills page. */
 export type SkillsOverlay =
   | { kind: "none" }
-  | { kind: "add" }
-  | { kind: "edit"; id: string };
+  | { kind: "add" };

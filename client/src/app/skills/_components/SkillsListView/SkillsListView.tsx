@@ -10,7 +10,6 @@ import { AppShell } from "@/components/app-shell";
 import { useSkills, useSkillSummaries, useUpdateSkill, useDeleteSkill } from "@/lib/hooks/skills";
 import { SkillCard } from "./_components/SkillCard";
 import { SkillDetail } from "./_components/SkillDetail";
-import { SkillEditorModal } from "./_components/SkillEditorModal";
 import { AddSkillModal } from "./_components/AddSkillModal";
 import type { SkillsOverlay } from "./constants";
 import { filterSkills } from "./helpers";
@@ -35,7 +34,6 @@ export function SkillsListView({ initialId = null }: { initialId?: string | null
   const list = filterSkills(all, search);
   // Derived during render: the chosen skill, else (nothing chosen / vanished) the first one.
   const selected = all.find((sk) => sk.id === selectedId) ?? all[0];
-  const editing = overlay.kind === "edit" ? all.find((sk) => sk.id === overlay.id) : undefined;
 
   // Reflect the open skill in the URL (/skills/:id) without remounting the page.
   const open = React.useCallback((id: string | null) => {
@@ -108,7 +106,6 @@ export function SkillsListView({ initialId = null }: { initialId?: string | null
             <SkillDetail
               key={selected.id}
               skill={selected}
-              onEdit={() => setOverlay({ kind: "edit", id: selected.id })}
               onDeleted={onDeleted}
               onToggle={(enabled) => update.mutate({ id: selected.id, patch: { enabled } })}
             />
@@ -118,7 +115,6 @@ export function SkillsListView({ initialId = null }: { initialId?: string | null
         </div>
       </div>
 
-      {editing && <SkillEditorModal skill={editing} onClose={close} />}
       {overlay.kind === "add" && (
         <AddSkillModal
           onClose={close}

@@ -18,12 +18,10 @@ import { s } from "./styles";
 
 export function SkillDetail({
   skill,
-  onEdit,
   onDeleted,
   onToggle,
 }: {
   skill: Skill;
-  onEdit: () => void;
   onDeleted: () => void;
   onToggle: (enabled: boolean) => void;
 }) {
@@ -55,7 +53,7 @@ export function SkillDetail({
       </div>
       <Tabs tabs={tabs} value={tab} onChange={(k) => setTab(k as SkillTab)} pad="8px 20px 0" />
       <div style={s.body}>
-        {tab === "config" && <ConfigTab skill={skill} onEdit={onEdit} onDeleted={onDeleted} onToggle={onToggle} />}
+        {tab === "config" && <ConfigTab skill={skill} onDeleted={onDeleted} onToggle={onToggle} />}
         {tab === "preview" && <PreviewTab skill={skill} />}
         {tab === "evals" && <EvalsTab />}
         {tab === "stats" && <StatsTab skillId={skill.id} />}

@@ -52,7 +52,7 @@ function renderDetail(skill: Skill = SKILL) {
   render(
     <NextIntlClientProvider locale="en" messages={{ skills: messages, common }}>
       <ToastProvider>
-        <SkillDetail skill={skill} onEdit={vi.fn()} onDeleted={vi.fn()} onToggle={vi.fn()} />
+        <SkillDetail skill={skill} onDeleted={vi.fn()} onToggle={vi.fn()} />
       </ToastProvider>
     </NextIntlClientProvider>,
   );
@@ -62,12 +62,12 @@ describe("SkillDetail", () => {
   it("opens on the Preview tab", () => {
     renderDetail();
     expect(screen.getByRole("heading", { name: "Preview heading" })).toBeInTheDocument();
-    // The Config tab's real "Edit" button must not be on screen yet.
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    // The Config tab's editor must not be on screen yet.
+    expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
   });
 
   it.each([
-    ["Config", "Edit"],
+    ["Config", "Configuration"],
     ["Stats", "Security Reviewer"],
     ["Versioning", "Tightened scope rule"],
   ])("clicking %s renders that tab's real content", (label, text) => {

@@ -11,7 +11,7 @@ import { useConventionSkillDraft } from "@/lib/hooks/conventions";
 import { useAgents } from "@/lib/hooks/agents";
 import { useCreateSkill, useLinkSkillToAgent } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
-import { estimateTokens } from "../../helpers";
+import { estimateTokens } from "@/lib/estimate-tokens";
 import { BODY_ROWS, MODAL_WIDTH, SKILL_TYPES } from "./constants";
 import { s } from "./styles";
 

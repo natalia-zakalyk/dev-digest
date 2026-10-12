@@ -7,8 +7,10 @@ import common from "../../../../../../../../../messages/en/common.json";
 import { ToastProvider } from "@/lib/toast";
 
 const deleteMutate = vi.fn();
+const updateMutate = vi.fn();
 vi.mock("@/lib/hooks/skills", () => ({
   useDeleteSkill: () => ({ mutate: deleteMutate, isPending: false }),
+  useUpdateSkill: () => ({ mutate: updateMutate, isPending: false }),
 }));
 
 import { ConfigTab } from "./ConfigTab";
@@ -28,13 +30,14 @@ const skill = (over: Partial<Skill> = {}): Skill => ({
 afterEach(() => {
   cleanup();
   deleteMutate.mockReset();
+  updateMutate.mockReset();
 });
 
-function renderTab(s: Skill, cb: { onEdit?: () => void; onDeleted?: () => void; onToggle?: (e: boolean) => void } = {}) {
+function renderTab(s: Skill, cb: { onDeleted?: () => void; onToggle?: (e: boolean) => void } = {}) {
   render(
     <NextIntlClientProvider locale="en" messages={{ skills: messages, common }}>
       <ToastProvider>
-        <ConfigTab skill={s} onEdit={cb.onEdit ?? vi.fn()} onDeleted={cb.onDeleted ?? vi.fn()} onToggle={cb.onToggle ?? vi.fn()} />
+        <ConfigTab skill={s} onDeleted={cb.onDeleted ?? vi.fn()} onToggle={cb.onToggle ?? vi.fn()} />
       </ToastProvider>
     </NextIntlClientProvider>,
   );
@@ -76,10 +79,33 @@ describe("ConfigTab", () => {
     expect(onToggle).toHaveBeenCalledWith(false);
   });
 
-  it("Edit calls onEdit", () => {
-    const onEdit = vi.fn();
-    renderTab(skill(), { onEdit });
-    fireEvent.click(screen.getByRole("button", { name: messages.preview.edit }));
-    expect(onEdit).toHaveBeenCalledTimes(1);
+  it("shows the inline editor: version, fields, filename, token count", () => {
+    renderTab(skill({ version: 5, body: "# b\nline" }));
+    expect(screen.getByText("Configuration")).toBeInTheDocument();
+    expect(screen.getByText("v5")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("uncovered-branches")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Use on every PR.")).toBeInTheDocument();
+    expect(screen.getByText("uncovered-branches.md")).toBeInTheDocument();
+    expect(screen.getByText("2 tokens")).toBeInTheDocument();
+    expect(screen.queryByText("unsaved")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save skill" })).toBeDisabled();
+  });
+
+  it("editing the body shows 'unsaved' and Save sends the patch", () => {
+    renderTab(skill());
+    fireEvent.change(screen.getByRole("textbox", { name: "Skill body" }), { target: { value: "# b\nmore" } });
+    expect(screen.getByText("unsaved")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save skill" }));
+    expect(updateMutate.mock.calls[0]![0]).toEqual({
+      id: "s1",
+      patch: { name: "uncovered-branches", description: "Use on every PR.", type: "rubric", body: "# b\nmore" },
+    });
+  });
+
+  it("Save is blocked while the name is blank", () => {
+    renderTab(skill());
+    fireEvent.change(screen.getByDisplayValue("uncovered-branches"), { target: { value: "  " } });
+    expect(screen.getByRole("button", { name: "Save skill" })).toBeDisabled();
+    expect(screen.getByText("Name and body are required.")).toBeInTheDocument();
   });
 });

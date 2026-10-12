@@ -69,3 +69,6 @@ Prompt assembly's Skills block lists the skill names and `~T tokens` when the tr
 - Skill card: `vN` version badge, agents count, trash button → ConfirmDialog (confirm / cancel / ×).
 - Route `/skills/:id` opens the page with that skill selected; opening another card rewrites the URL (`history.replaceState`).
 - Detail tabs: Config · Preview · Evals · Stats · **Versioning** (diff + restore).
+- Config tab is the inline editor from the design (no edit modal): "Configuration vN" + Enabled switch, Name, Description,
+  Type, and the Skill body editor (`<name>.md` header, `unsaved` badge, token count, line-number gutter); Save writes a
+  new version when anything changed, Reset reverts, Delete keeps its confirm dialog. Sidebar order: Skills · Agents · Conventions.

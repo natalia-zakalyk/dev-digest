@@ -26,8 +26,3 @@ export function confidenceColor(pct: number): string {
   if (pct >= CONFIDENCE_WARN) return "var(--warn)";
   return "var(--crit)";
 }
-
-/** Rough token estimate (≈ 4 chars/token) for the skill body counter. */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
