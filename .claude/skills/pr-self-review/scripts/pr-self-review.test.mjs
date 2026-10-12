@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -277,4 +277,18 @@ test('gate thresholds, dedupe and dismissal hints', () => {
   const dis = (reason) => ({ skill: 'security', reason, title: 't' });
   assert.equal(dismissalHints([dis('Fastify escapes it'), dis('fastify  escapes it'), dis('other')]).length, 0);
   assert.equal(dismissalHints([dis('Fastify escapes it'), dis('fastify escapes it'), dis('FASTIFY escapes it')])[0].count, 3);
+});
+
+test('worktree and commit fingerprints agree for a symlink (hashed as link text, not its target)', () => {
+  const r = repo();
+  try {
+    r.write('AGENTS.md', 'rules\n');
+    symlinkSync('AGENTS.md', join(r.dir, 'CLAUDE.md'));
+    const base = r.g('rev-parse', 'main').trim();
+    const wt = fingerprint(worktreeBlobs(touchedPaths(worktreeChanges(base, r.dir)), r.dir));
+    r.g('add', '-A'); r.g('commit', '-qm', 'link');
+    const head = r.g('rev-parse', 'HEAD').trim();
+    const committed = fingerprint(commitBlobs(touchedPaths(commitChanges(base, head, r.dir)), head, r.dir));
+    assert.equal(wt, committed);
+  } finally { r.cleanup(); }
 });

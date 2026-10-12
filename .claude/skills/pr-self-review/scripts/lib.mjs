@@ -3,7 +3,7 @@
 // nothing here can ever be committed). No dependencies beyond Node ≥22.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, openSync, readSync, closeSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, lstatSync, readlinkSync, openSync, readSync, closeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -88,14 +88,23 @@ export function touchedPaths(files) {
   return [...set].sort();
 }
 
-/** Blob ids of `paths` in the working tree; '-' for paths that don't exist. */
+/**
+ * Blob ids of `paths` in the working tree; '-' for paths that don't exist.
+ * A symlink is hashed like git stores it (the link text), not the file it points to.
+ */
 export function worktreeBlobs(paths, cwd) {
   const root = repoRoot(cwd);
-  const present = paths.filter((p) => existsSync(join(root, p)));
+  const exists = (p) => { try { lstatSync(join(root, p)); return true; } catch { return false; } };
+  const isLink = (p) => lstatSync(join(root, p)).isSymbolicLink();
+  const present = paths.filter(exists);
   const blobs = Object.fromEntries(paths.map((p) => [p, '-']));
-  if (present.length) {
-    const out = git(['hash-object', '--stdin-paths'], { cwd: root, input: present.join('\n') + '\n' }).trim().split('\n');
-    present.forEach((p, i) => { blobs[p] = out[i]; });
+  const files = present.filter((p) => !isLink(p));
+  if (files.length) {
+    const out = git(['hash-object', '--stdin-paths'], { cwd: root, input: files.join('\n') + '\n' }).trim().split('\n');
+    files.forEach((p, i) => { blobs[p] = out[i]; });
+  }
+  for (const p of present.filter(isLink)) {
+    blobs[p] = git(['hash-object', '--stdin'], { cwd: root, input: readlinkSync(join(root, p)) }).trim();
   }
   return blobs;
 }
