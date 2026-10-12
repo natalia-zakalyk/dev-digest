@@ -27,7 +27,7 @@ Skills module) that can be linked to agents.
 |---|---|---|
 | POST | `/repos/:id/conventions/extract` | runs the pipeline below, upserts candidates, returns `{scan_id, candidates, stats:{proposed, verified, dropped}}` |
 | GET | `/repos/:id/conventions` | candidates of the repo (all statuses) + last scan time + sample-file count |
-| PATCH | `/conventions/:id` | `{status?, rule?, category?}` — accept / reject / edit text |
+| PATCH | `/conventions/:id` | `{status?, rule?, category?}` — accept / reject / edit text; renaming onto another rule of the same repo → **409 `conflict`** |
 | POST | `/repos/:id/conventions/skill-draft` | accepted ids → `{name, description, type:'convention', body}`; **writes nothing** |
 
 Saving the skill = existing `POST /skills`; linking = existing `POST /agents/:id/skills`. No new write path.
@@ -65,6 +65,7 @@ Body = `# <name>` + intro line + one `## <rule slug>` section per accepted conve
   Migration `0014` adds the columns, backfills `status` from `accepted`, adds unique `(repo_id, rule)`.
 - `GET /repos/:id/conventions`: `last_scan_at` = newest row's `created_at` (re-scans don't bump existing rows) and
   `sample_files` is `null` — only `extract` knows the sample count (`stats.sample_files`).
+- Layers: `service.ts` depends on the `ConventionsRepo` port (`ports.ts`, domain types `Convention` / `RepoInfo`); `repository.ts` maps Drizzle rows to them; `compose.ts` wires the concrete classes.
 - Models are read through `settings/index.ts` (`resolveFeatureModel(…, 'conventions')`).
 - Tests: `test/conventions.test.ts` (hermetic, fakes) · `test/conventions.it.test.ts` (repository, Postgres).
 

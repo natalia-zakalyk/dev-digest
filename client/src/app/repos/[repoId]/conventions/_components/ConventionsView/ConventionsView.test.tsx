@@ -23,6 +23,7 @@ let candidates: ConventionCandidate[] = [];
 let loaded: { last_scan_at: string | null } = { last_scan_at: "2026-10-11T10:00:00Z" };
 const extractMutate = vi.fn();
 const updateMutate = vi.fn();
+const draftMutate = vi.fn();
 vi.mock("next/navigation", () => ({ useParams: () => ({ repoId: "r1" }) }));
 vi.mock("@/lib/repo-context", () => ({
   useActiveRepo: () => ({ activeRepo: { id: "r1", name: "payments-api", full_name: "acme/payments-api" } }),
@@ -32,7 +33,7 @@ vi.mock("@/lib/hooks/conventions", () => ({
   useConventions: () => ({ data: { candidates, ...loaded, sample_files: null }, isLoading: false, isError: false, refetch: vi.fn() }),
   useExtractConventions: () => ({ mutate: extractMutate, isPending: false, isSuccess: false }),
   useUpdateConvention: () => ({ mutate: updateMutate }),
-  useConventionSkillDraft: () => ({ mutate: vi.fn(), isError: false }),
+  useConventionSkillDraft: () => ({ mutate: draftMutate, isError: false }),
 }));
 vi.mock("@/lib/hooks/skills", () => ({ useCreateSkill: () => ({ mutate: vi.fn(), isPending: false, isError: false }) }));
 vi.mock("@/components/app-shell", () => ({
@@ -46,6 +47,7 @@ afterEach(cleanup);
 beforeEach(() => {
   extractMutate.mockReset();
   updateMutate.mockReset();
+  draftMutate.mockReset();
   loaded = { last_scan_at: "2026-10-11T10:00:00Z" };
   candidates = [mk("a", "accepted", "Use async/await"), mk("b", "pending", "Use singletons"), mk("c", "rejected", "No default exports")];
 });
@@ -70,10 +72,19 @@ describe("ConventionsView", () => {
     expect(screen.getByText("Use singletons")).toBeInTheDocument();
   });
 
-  it("Create skill opens the modal only when something is accepted", () => {
+  it("Create skill is disabled while nothing is accepted", () => {
     candidates = [mk("b", "pending", "Use singletons")];
     renderView();
     expect(screen.getByRole("button", { name: "Create skill" })).toBeDisabled();
+  });
+
+  it("Create skill opens the draft modal for the accepted conventions", () => {
+    renderView();
+    expect(screen.queryByText(/Merged from/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
+    expect(draftMutate).toHaveBeenCalledTimes(1);
+    expect(draftMutate.mock.calls[0]?.[0]).toEqual(["a"]);
+    expect(screen.getByText("Create skill from conventions")).toBeInTheDocument();
   });
 
   it("re-scan triggers the extractor", () => {

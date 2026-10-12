@@ -5,8 +5,8 @@ import { verifyCandidates } from '../src/modules/conventions/domain/verify.js';
 import { buildSkillDraft } from '../src/modules/conventions/domain/skill-draft.js';
 import { numberLines } from '../src/modules/conventions/domain/sampling.js';
 import { ConventionsService } from '../src/modules/conventions/service.js';
-import type { ConventionsRepository } from '../src/modules/conventions/repository.js';
-import { ValidationError } from '../src/platform/errors.js';
+import type { ConventionsRepo } from '../src/modules/conventions/ports.js';
+import { NotFoundError, ValidationError } from '../src/platform/errors.js';
 
 /** Conventions extractor — hermetic: fake repo/git/repoIntel, MockLLMProvider (no DB, no keys). */
 
@@ -77,7 +77,7 @@ function build(structured: unknown, opts: { files?: Record<string, string>; stat
       }
     },
     update: async () => undefined,
-  } as unknown as ConventionsRepository;
+  } as unknown as ConventionsRepo;
   const git = {
     readFile: async (_r: unknown, p: string) => {
       if (p in files) return files[p]!;
@@ -116,6 +116,13 @@ describe('ConventionsService.extract', () => {
   it('fails clearly when nothing is readable, and 404s an unknown repo', async () => {
     await expect(build({ candidates: [] }, { files: {} }).svc.extract('w', 'r1')).rejects.toBeInstanceOf(ValidationError);
     await expect(build({ candidates: [] }).svc.extract('w', 'zzz')).rejects.toThrow(/not found/i);
+  });
+});
+
+describe('ConventionsService.update', () => {
+  it('throws NotFoundError when the convention does not exist in the workspace', async () => {
+    const { svc } = build({ candidates: [] });
+    await expect(svc.update('w', 'missing', { status: 'accepted' })).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

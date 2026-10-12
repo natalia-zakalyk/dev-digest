@@ -4,6 +4,7 @@ import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
 import { ConventionsRepository } from '../src/modules/conventions/repository.js';
 import type { VerifiedCandidate } from '../src/modules/conventions/domain/verify.js';
+import { ConflictError } from '../src/platform/errors.js';
 
 const d = (await dockerAvailable()) ? describe : describe.skip;
 
@@ -49,7 +50,16 @@ d('conventions repository (Testcontainers pg)', () => {
 
     const rows = await repo.listByRepo(workspaceId, repoId);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ status: 'accepted', accepted: true, evidenceSnippet: 'new', confidence: 0.95 });
+    expect(rows[0]).toMatchObject({ status: 'accepted', evidenceSnippet: 'new', confidence: 0.95 });
+  });
+
+  it('renaming a rule onto an existing one in the same repo is a 409 ConflictError, not a raw DB error', async () => {
+    await repo.upsertCandidates(workspaceId, repoId, crypto.randomUUID(), [item({ rule: 'Prefer named exports' })]);
+    const rows = await repo.listByRepo(workspaceId, repoId);
+    const other = rows.find((r) => r.rule === 'Prefer named exports')!;
+    await expect(repo.update(workspaceId, other.id, { rule: 'Use async/await' })).rejects.toBeInstanceOf(ConflictError);
+    // unchanged after the failed rename
+    expect((await repo.getById(workspaceId, other.id))?.rule).toBe('Prefer named exports');
   });
 
   it('is workspace-scoped', async () => {

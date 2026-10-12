@@ -3,39 +3,62 @@ import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { ConventionRow, RepoRow } from '../../db/rows.js';
 import type { ConventionStatus } from '@devdigest/shared';
+import { ConflictError } from '../../platform/errors.js';
 import type { VerifiedCandidate } from './domain/verify.js';
+import type { Convention, ConventionsRepo, RepoInfo } from './ports.js';
+
+const toConvention = (r: ConventionRow): Convention => ({
+  id: r.id,
+  rule: r.rule,
+  category: r.category,
+  evidencePath: r.evidencePath,
+  evidenceSnippet: r.evidenceSnippet,
+  evidenceLineStart: r.evidenceLineStart,
+  evidenceLineEnd: r.evidenceLineEnd,
+  confidence: r.confidence,
+  status: r.status,
+  createdAt: r.createdAt,
+});
+
+const toRepoInfo = (r: RepoRow): RepoInfo => ({ id: r.id, owner: r.owner, name: r.name });
+
+const UNIQUE_VIOLATION = '23505';
+const isUniqueViolation = (err: unknown): boolean =>
+  (err as { code?: string; cause?: { code?: string } } | null)?.code === UNIQUE_VIOLATION ||
+  (err as { cause?: { code?: string } } | null)?.cause?.code === UNIQUE_VIOLATION;
 
 /** Conventions data-access. Owns `conventions`; reads `repos` only to scope by workspace. */
-export class ConventionsRepository {
+export class ConventionsRepository implements ConventionsRepo {
   constructor(private db: DbExecutor) {}
 
-  async getRepo(workspaceId: string, repoId: string): Promise<RepoRow | undefined> {
+  async getRepo(workspaceId: string, repoId: string): Promise<RepoInfo | undefined> {
     const [row] = await this.db
       .select()
       .from(t.repos)
       .where(and(eq(t.repos.workspaceId, workspaceId), eq(t.repos.id, repoId)));
-    return row;
+    return row && toRepoInfo(row);
   }
 
-  async listByRepo(workspaceId: string, repoId: string): Promise<ConventionRow[]> {
-    return this.db
+  async listByRepo(workspaceId: string, repoId: string): Promise<Convention[]> {
+    const rows = await this.db
       .select()
       .from(t.conventions)
       .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.repoId, repoId)))
       .orderBy(desc(t.conventions.confidence));
+    return rows.map(toConvention);
   }
 
-  async getById(workspaceId: string, id: string): Promise<ConventionRow | undefined> {
+  async getById(workspaceId: string, id: string): Promise<Convention | undefined> {
     const [row] = await this.db
       .select()
       .from(t.conventions)
       .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.id, id)));
-    return row;
+    return row && toConvention(row);
   }
 
-  async listByIds(workspaceId: string, repoId: string, ids: string[]): Promise<ConventionRow[]> {
+  async listByIds(workspaceId: string, repoId: string, ids: string[]): Promise<Convention[]> {
     if (ids.length === 0) return [];
-    return this.db
+    const rows = await this.db
       .select()
       .from(t.conventions)
       .where(
@@ -45,6 +68,7 @@ export class ConventionsRepository {
           inArray(t.conventions.id, ids),
         ),
       );
+    return rows.map(toConvention);
   }
 
   /**
@@ -92,7 +116,7 @@ export class ConventionsRepository {
     workspaceId: string,
     id: string,
     patch: { status?: ConventionStatus; rule?: string; category?: string },
-  ): Promise<ConventionRow | undefined> {
+  ): Promise<Convention | undefined> {
     const set: Partial<typeof t.conventions.$inferInsert> = {};
     if (patch.status) {
       set.status = patch.status;
@@ -101,11 +125,17 @@ export class ConventionsRepository {
     if (patch.rule !== undefined) set.rule = patch.rule;
     if (patch.category !== undefined) set.category = patch.category;
     if (Object.keys(set).length === 0) return this.getById(workspaceId, id);
-    const [row] = await this.db
-      .update(t.conventions)
-      .set(set)
-      .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.id, id)))
-      .returning();
-    return row;
+    try {
+      const [row] = await this.db
+        .update(t.conventions)
+        .set(set)
+        .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.id, id)))
+        .returning();
+      return row && toConvention(row);
+    } catch (err) {
+      // Renaming onto another rule of the same repo hits conventions_repo_rule_uq.
+      if (isUniqueViolation(err)) throw new ConflictError('A convention with this rule already exists');
+      throw err;
+    }
   }
 }

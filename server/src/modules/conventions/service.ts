@@ -12,9 +12,7 @@ import type {
 import { ConventionExtraction as ConventionExtractionSchema } from '@devdigest/shared';
 import type { RepoIntel } from '../repo-intel/types.js';
 import { NotFoundError, ValidationError } from '../../platform/errors.js';
-import type { Container } from '../../platform/container.js';
-import { resolveFeatureModel } from '../settings/index.js';
-import { ConventionsRepository } from './repository.js';
+import type { ConventionsRepo } from './ports.js';
 import {
   CONFIG_FILES,
   EXTRACTION_MAX_TOKENS,
@@ -30,7 +28,7 @@ import { buildSkillDraft } from './domain/skill-draft.js';
 
 /** Ports the service needs — injected, so tests pass fakes (no container). */
 export interface ConventionsDeps {
-  repo: ConventionsRepository;
+  repo: ConventionsRepo;
   git: GitClient;
   repoIntel: Pick<RepoIntel, 'getConventionSamples'>;
   llm(provider: Provider): Promise<LLMProvider>;
@@ -107,9 +105,10 @@ export class ConventionsService {
     workspaceId: string,
     id: string,
     patch: UpdateConventionBody,
-  ): Promise<ConventionCandidate | undefined> {
+  ): Promise<ConventionCandidate> {
     const row = await this.deps.repo.update(workspaceId, id, patch);
-    return row ? toConventionDto(row) : undefined;
+    if (!row) throw new NotFoundError('Convention not found');
+    return toConventionDto(row);
   }
 
   /** Accepted conventions → one editable skill draft. Writes nothing. */
@@ -150,16 +149,4 @@ export class ConventionsService {
     }
     return out;
   }
-}
-
-/** Composition: wire the service to the container's adapters (routes stay persistence-free). */
-export function createConventionsService(c: Container): ConventionsService {
-  return new ConventionsService({
-    repo: new ConventionsRepository(c.db),
-    git: c.git,
-    // Resolved lazily: tests may swap the repoIntel override after plugin load.
-    repoIntel: { getConventionSamples: (repoId, n) => c.repoIntel.getConventionSamples(repoId, n) },
-    llm: (provider) => c.llm(provider),
-    resolveModel: (workspaceId) => resolveFeatureModel(c, workspaceId, 'conventions'),
-  });
 }

@@ -3,8 +3,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { ConventionSkillDraftBody, UpdateConventionBody } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
-import { NotFoundError } from '../../platform/errors.js';
-import { createConventionsService } from './service.js';
+import { createConventionsService } from './compose.js';
 
 /**
  * Conventions extractor. Spec: server/specs/conventions.md
@@ -33,9 +32,7 @@ export default async function conventionsRoutes(appBase: FastifyInstance) {
     { schema: { params: IdParams, body: UpdateConventionBody } },
     async (req) => {
       const { workspaceId } = await getContext(c, req);
-      const row = await service.update(workspaceId, req.params.id, req.body);
-      if (!row) throw new NotFoundError('Convention not found');
-      return row;
+      return service.update(workspaceId, req.params.id, req.body);
     },
   );
 

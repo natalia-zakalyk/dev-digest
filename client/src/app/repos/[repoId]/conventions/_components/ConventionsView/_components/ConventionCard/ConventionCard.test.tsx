@@ -55,11 +55,33 @@ describe("ConventionCard", () => {
     expect(onSetStatus).toHaveBeenCalledWith("pending");
   });
 
-  it("edits the rule inline and saves only a changed, non-empty value", () => {
+  it("edits the rule inline and saves the trimmed new value", () => {
     const { onEditRule } = renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "  Prefer await  " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onEditRule).toHaveBeenCalledTimes(1);
     expect(onEditRule).toHaveBeenCalledWith("Prefer await");
+  });
+
+  it("does not save an unchanged or blank rule", () => {
+    const { onEditRule } = renderCard();
+    // unchanged
+    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    // blank
+    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onEditRule).not.toHaveBeenCalled();
+  });
+
+  it("cancel discards the draft", () => {
+    const { onEditRule } = renderCard();
+    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "Something else" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onEditRule).not.toHaveBeenCalled();
+    expect(screen.getByText("Always use async/await")).toBeInTheDocument();
   });
 });
