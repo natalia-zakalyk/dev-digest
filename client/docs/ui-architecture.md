@@ -86,6 +86,7 @@ flowchart LR
 | `agents.ts` | `["agents"]`, `["agent", id]`, `["provider-models", provider]` | Create/update/delete invalidate `agents`; delete also `removeQueries(["agent", id])`. |
 | `reviews.ts` | `["pr-active-runs", prId]`, `["pr-runs", prId]`, `["reviews", prId]`, `["pr-comments", prId]` | Active runs poll every 4 s **only while non-empty**; run history polls 4 s while any run is `running`. `useRunReview`/`useFindingAction` invalidate `reviews`; `useDeleteRun` invalidates `pr-runs` + `reviews`. |
 | `trace.ts` | `["run-trace", runId]` | `retry: false`; `enabled` flag lets the drawer wait until a run finishes. |
+| `conventions.ts` | `["conventions", repoId]` | Extract + update invalidate the list; `useUpdateConvention` is optimistic (rolls back on error). `useConventionSkillDraft` is a mutation that writes nothing. |
 | `repo-intel.ts` | `["repo-intel-state", repoId]` | Optional 1.5 s polling. Currently not used by any page. |
 
 Conventions:

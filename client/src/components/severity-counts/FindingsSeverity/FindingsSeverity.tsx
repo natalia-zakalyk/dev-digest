@@ -21,6 +21,8 @@ export function FindingsSeverity({
   loading,
   onOpenChange,
   hoverOnly,
+  repoFullName,
+  headSha,
 }: {
   counts: Counts | null | undefined;
   /** All findings behind the counts; undefined while they load lazily. */
@@ -30,6 +32,9 @@ export function FindingsSeverity({
   onOpenChange?: (open: boolean) => void;
   /** Open on hover/focus only — clicking a counter does nothing (Agent runs timeline). */
   hoverOnly?: boolean;
+  /** Make each finding's file:line a GitHub link (needs both). */
+  repoFullName?: string | null;
+  headSha?: string | null;
 }) {
   const [active, setActive] = React.useState<CountedSeverity | null>(null);
   const anchorRef = React.useRef<HTMLSpanElement>(null);
@@ -116,6 +121,8 @@ export function FindingsSeverity({
           anchor={anchorRef.current}
           findings={shown}
           loading={loading}
+          repoFullName={repoFullName}
+          headSha={headSha}
           onMouseEnter={enterTooltip}
           onMouseLeave={leaveTooltip}
         />

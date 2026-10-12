@@ -14,17 +14,27 @@ export function RunFindings({
   findings,
   findingsCount,
   blockers,
+  repoFullName,
+  headSha,
 }: {
   findings: FindingRecord[] | undefined;
   findingsCount: number;
   blockers: number;
+  repoFullName?: string | null;
+  headSha?: string | null;
 }) {
   const t = useTranslations("prReview");
   const counts = React.useMemo(() => (findings ? countBySeverity(findings) : null), [findings]);
   return (
     <div style={s.findings}>
       {counts ? (
-        <FindingsSeverity counts={counts} findings={findings} hoverOnly />
+        <FindingsSeverity
+          counts={counts}
+          findings={findings}
+          hoverOnly
+          repoFullName={repoFullName}
+          headSha={headSha}
+        />
       ) : (
         t("runStatus.findings", { count: findingsCount })
       )}

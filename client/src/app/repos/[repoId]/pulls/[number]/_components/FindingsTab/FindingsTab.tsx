@@ -125,6 +125,8 @@ export function FindingsTab({
             findingsByRun={findingsByRun}
             onGoToReview={goToReview}
             onDelete={setDeletingRunId}
+            repoFullName={repoFullName}
+            headSha={headSha}
           />
         </div>
       )}

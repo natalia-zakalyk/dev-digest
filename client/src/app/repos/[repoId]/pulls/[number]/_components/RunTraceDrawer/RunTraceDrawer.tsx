@@ -23,6 +23,9 @@ export interface RunTraceDrawerProps {
   prNumber?: number | null;
   /** Persisted findings of this run (shown in the Findings section). */
   findings?: FindingRecord[];
+  /** owner/repo + PR head sha: finding locations link to GitHub when both are set. */
+  repoFullName?: string | null;
+  headSha?: string | null;
   /** When true, the drawer defaults to the live log and streams SSE. */
   running?: boolean;
   onClose: () => void;
@@ -38,6 +41,8 @@ export function RunTraceDrawer({
   agentName,
   prNumber,
   findings = [],
+  repoFullName,
+  headSha,
   running = false,
   onClose,
 }: RunTraceDrawerProps) {
@@ -94,7 +99,7 @@ export function RunTraceDrawer({
               {stillRunning ? t("drawer.tracePending") : t("drawer.loadingTrace")}
             </div>
           ) : trace ? (
-            <TraceBody trace={trace} findings={findings} />
+            <TraceBody trace={trace} findings={findings} repoFullName={repoFullName} headSha={headSha} />
           ) : (
             <div style={s.emptyNote}>{t("drawer.noTrace")}</div>
           )

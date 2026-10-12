@@ -26,10 +26,14 @@ const findings = [
   finding("3", "WARNING", "Missing index"),
 ];
 
-function renderIt(counts: SeverityCounts | null, fs: FindingRecord[] | undefined = findings) {
+function renderIt(
+  counts: SeverityCounts | null,
+  fs: FindingRecord[] | undefined = findings,
+  links?: { repoFullName: string; headSha: string },
+) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ common }}>
-      <FindingsSeverity counts={counts} findings={fs} />
+      <FindingsSeverity counts={counts} findings={fs} {...links} />
     </NextIntlClientProvider>,
   );
 }
@@ -55,6 +59,20 @@ describe("FindingsSeverity", () => {
     expect(tooltip).toHaveTextContent("Missing index");
     expect(tooltip).not.toHaveTextContent("Hardcoded Stripe secret key");
     expect(tooltip).toHaveTextContent("src/config.ts:12-14");
+  });
+
+  it("links each finding's file:line to GitHub when the repo and head sha are known", () => {
+    renderIt({ critical: 1, warning: 2, suggestion: 0 }, findings, { repoFullName: "acme/api", headSha: "abc123" });
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "1 critical finding" }));
+    const link = screen.getByRole("link", { name: "src/config.ts:12-14" });
+    expect(link).toHaveAttribute("href", "https://github.com/acme/api/blob/abc123/src/config.ts#L12-L14");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("shows plain text (no link) without a repo", () => {
+    renderIt({ critical: 1, warning: 2, suggestion: 0 });
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "1 critical finding" }));
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("switches severity on hover and closes shortly after the pointer leaves", () => {

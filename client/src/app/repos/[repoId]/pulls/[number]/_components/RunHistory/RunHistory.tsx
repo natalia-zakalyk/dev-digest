@@ -20,6 +20,8 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  repoFullName,
+  headSha,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
@@ -30,6 +32,9 @@ export function RunHistory({
   /** Jump to this run's inline review accordion below (clicking the agent name). */
   onGoToReview?: (runId: string) => void;
   onDelete?: (runId: string) => void;
+  /** owner/repo + PR head sha: finding locations in the hover preview link to GitHub. */
+  repoFullName?: string | null;
+  headSha?: string | null;
 }) {
   const t = useTranslations("prReview");
   if (runs.length === 0 && commits.length === 0) return null;
@@ -91,6 +96,8 @@ export function RunHistory({
                   findings={findingsByRun?.get(r.run_id)}
                   findingsCount={r.findings_count ?? 0}
                   blockers={r.blockers ?? 0}
+                  repoFullName={repoFullName}
+                  headSha={headSha}
                 />
               )}
             </div>

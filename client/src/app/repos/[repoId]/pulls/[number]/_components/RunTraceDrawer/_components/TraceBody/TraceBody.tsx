@@ -16,7 +16,17 @@ import { PromptBlock } from "../PromptBlock";
 import { FindingsSection } from "../FindingsSection";
 import { Row, Stat } from "../atoms";
 
-export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
+export function TraceBody({
+  trace,
+  findings,
+  repoFullName,
+  headSha,
+}: {
+  trace: RunTrace;
+  findings: FindingRecord[];
+  repoFullName?: string | null;
+  headSha?: string | null;
+}) {
   const t = useTranslations("runs");
   const stats = trace.stats;
   return (
@@ -69,7 +79,7 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
         </div>
       </TraceSection>
 
-      <FindingsSection findings={findings} />
+      <FindingsSection findings={findings} repoFullName={repoFullName} headSha={headSha} />
 
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
         <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />

@@ -84,6 +84,8 @@ export function PrDetailView({ repoId, number, prId, pr, repoFullName }: PrDetai
           runId={traceRunId}
           prNumber={pr.number}
           findings={traceRun?.findings ?? []}
+          repoFullName={repoFullName}
+          headSha={pr.head_sha}
           agentName={traceRun?.agent_name ?? null}
           running={liveRunIds.includes(traceRunId)}
           onClose={closeTrace}

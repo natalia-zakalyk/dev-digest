@@ -11,10 +11,12 @@ import {
   SeverityBadge,
   CategoryTag,
   ConfidenceNum,
+  MonoLink,
   type Severity,
   type Category,
 } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
+import { githubBlobUrl } from "@/lib/github-urls";
 
 const WIDTH = 460;
 const GUTTER = 16;
@@ -78,10 +80,13 @@ export const FindingsPopover = React.forwardRef<
     anchor: HTMLElement;
     findings: FindingRecord[] | undefined;
     loading?: boolean;
+    /** owner/repo + head sha: when both are set the file:line is a GitHub deep-link. */
+    repoFullName?: string | null;
+    headSha?: string | null;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
   }
->(function FindingsPopover({ anchor, findings, loading, onMouseEnter, onMouseLeave }, ref) {
+>(function FindingsPopover({ anchor, findings, loading, repoFullName, headSha, onMouseEnter, onMouseLeave }, ref) {
   const t = useTranslations("common");
   const rect = anchor.getBoundingClientRect();
   const left = Math.max(GUTTER, Math.min(rect.left, window.innerWidth - WIDTH - GUTTER));
@@ -114,7 +119,15 @@ export const FindingsPopover = React.forwardRef<
             </div>
             <div style={s.metaRow}>
               <span className="mono" style={s.file}>
-                {f.file}:{lineLabel(f)}
+                {repoFullName && headSha ? (
+                  <MonoLink href={githubBlobUrl(repoFullName, headSha, f.file, f.start_line, f.end_line)}>
+                    {f.file}:{lineLabel(f)}
+                  </MonoLink>
+                ) : (
+                  <>
+                    {f.file}:{lineLabel(f)}
+                  </>
+                )}
               </span>
               <ConfidenceNum value={f.confidence} />
             </div>
