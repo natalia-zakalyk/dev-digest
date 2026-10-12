@@ -49,7 +49,8 @@ Server: Fastify 5 + Drizzle 0.38. Client: Next.js 15 (App Router) + React 19 + T
   reviewer-core) and `client/src/vendor/shared`. They have already drifted — when changing a
   contract, update both and say so.
 - Migrations do **not** run on boot: `cd server && pnpm db:migrate`.
-- The only outbound calls allowed: GitHub + LLM providers. Tests must stay key-free and offline.
+- The only outbound calls allowed: GitHub + LLM providers (this includes skill import by URL, limited to the GitHub hosts
+  `raw.githubusercontent.com`, `gist.githubusercontent.com`, `github.com`). Tests must stay key-free and offline.
 
 ## Do not touch
 - `server/src/db/migrations/*` — never edit applied migrations; generate a new one.

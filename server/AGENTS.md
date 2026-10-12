@@ -35,7 +35,9 @@ Fastify 5 API + Drizzle ORM 0.38 over Postgres (pgvector), port 3001. Package ma
 ## Gotchas
 - Migrations are not applied on boot.
 - Unindexed repo → reviewer silently degrades to diff-only context.
-- Prompt-injection defense is `INJECTION_GUARD` in reviewer-core — don't add keyword scanning.
+- Prompt-injection defense for review input is `INJECTION_GUARD` in reviewer-core — don't add keyword scanning there.
+  The only detector is `skills/domain/injection.ts`: a gate on **user-supplied skill content** (flags a skill and blocks
+  linking/prompt use); it does not replace the guard. See `specs/skills.md` § Injection gate.
 - Grounding drops findings that cite lines not in the diff; score is recomputed, model score ignored.
 
 ## Do not touch

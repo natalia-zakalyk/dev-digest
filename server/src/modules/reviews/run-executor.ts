@@ -8,7 +8,7 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
-import { formatSkillBlock } from '../skills/index.js';
+import { detectInjection, formatSkillBlock } from '../skills/index.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -357,7 +357,14 @@ export class ReviewRunExecutor {
     agentId: string,
     runLog: RunLogger,
   ): Promise<{ blocks: string[]; used: SkillUsed[] }> {
-    const linked = await this.agents.enabledSkillsForAgent(agentId);
+    const enabled = await this.agents.enabledSkillsForAgent(agentId);
+    // Defense in depth: a skill flagged by the injection gate never reaches a prompt, even if it was
+    // linked before it became flagged (the flag is derived from the current text).
+    const blocked = enabled.filter((l) => detectInjection(l.skill).detected);
+    const linked = enabled.filter((l) => !blocked.includes(l));
+    if (blocked.length > 0) {
+      runLog.info(`skills: skipped ${blocked.length} blocked (injection detected): ${blocked.map((b) => b.skill.name).join(', ')}`);
+    }
     if (linked.length === 0) {
       runLog.info('skills: none attached');
       return { blocks: [], used: [] };

@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Icon, Toggle } from "@devdigest/ui";
 import type { Skill, SkillSummary } from "@devdigest/shared";
 import { SkillTypeBadge, SKILL_TYPE_COLORS } from "@/components/skill-type-badge";
+import { InjectionBadge } from "@/components/skill-injection";
 import { SOURCE_ICONS } from "./constants";
 import { s } from "./styles";
 
@@ -31,7 +32,7 @@ export function SkillCard({
   const pull = summary?.pull_frequency;
   const accept = summary?.accept_rate;
   return (
-    <div style={s.card(skill.enabled, selected)}>
+    <div style={s.card(skill.enabled, selected, !!skill.injection?.detected)} data-flagged={skill.injection?.detected || undefined}>
       <div style={s.headerRow}>
         <div style={s.iconBox(color, bg)}>
           <Icon.Sparkles size={14} />
@@ -47,6 +48,7 @@ export function SkillCard({
       <div style={s.description}>{skill.description || t("card.noDescription")}</div>
       <div style={s.metaRow}>
         <SkillTypeBadge type={skill.type} />
+        <InjectionBadge injection={skill.injection} />
         <span style={s.source}>
           <SourceIcon size={12} />
           {tc(`skillSource.${skill.source}`)}

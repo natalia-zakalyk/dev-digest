@@ -2,13 +2,14 @@ import type { CSSProperties } from "react";
 
 /** Co-located styles for SkillCard (mirrors AgentCard). */
 export const s = {
-  card: (enabled: boolean, selected: boolean): CSSProperties => ({
+  card: (enabled: boolean, selected: boolean, flagged = false): CSSProperties => ({
     position: "relative",
     padding: "14px 16px",
     borderRadius: 10,
     cursor: "pointer",
-    border: `1px solid ${selected ? "var(--border-strong)" : "var(--border)"}`,
-    background: selected ? "var(--bg-hover)" : "var(--bg-surface)",
+    // A skill blocked by the injection gate gets a red frame (selected or not).
+    border: `1px solid ${flagged ? "var(--crit)" : selected ? "var(--border-strong)" : "var(--border)"}`,
+    background: flagged ? "var(--crit-bg)" : selected ? "var(--bg-hover)" : "var(--bg-surface)",
     opacity: enabled ? 1 : 0.6,
   }),
   headerRow: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
@@ -55,7 +56,7 @@ export const s = {
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
   } satisfies CSSProperties,
-  metaRow: { display: "flex", alignItems: "center", gap: 8 } satisfies CSSProperties,
+  metaRow: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 } satisfies CSSProperties,
   source: { fontSize: 12, color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: 5 } satisfies CSSProperties,
   footer: {
     display: "flex",

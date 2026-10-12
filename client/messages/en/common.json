@@ -51,9 +51,14 @@
   },
   "skillSource": {
     "manual": "Manual",
-    "imported_url": "Imported",
-    "imported_file": "Imported",
+    "imported_url": "Imported (URL)",
+    "imported_file": "Imported (file)",
     "extracted": "Extracted",
     "community": "Community"
+  },
+  "skillInjection": {
+    "badge": "Injection detected",
+    "bannerTitle": "INJECTION DETECTED — DO NOT ENABLE",
+    "bannerBody": "This skill contains prompt injection patterns. It has been automatically blocked."
   }
 }

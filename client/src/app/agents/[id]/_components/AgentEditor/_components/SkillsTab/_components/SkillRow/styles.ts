@@ -2,14 +2,24 @@ import type { CSSProperties } from "react";
 
 /** Co-located styles for SkillRow (rows follow the Agent Editor · Skills design). */
 export const s = {
-  row: ({ linked, dragging, over }: { linked: boolean; dragging: boolean; over: boolean }): CSSProperties => ({
+  row: ({
+    linked,
+    dragging,
+    over,
+    flagged = false,
+  }: {
+    linked: boolean;
+    dragging: boolean;
+    over: boolean;
+    flagged?: boolean;
+  }): CSSProperties => ({
     display: "flex",
     alignItems: "center",
     gap: 12,
     padding: "10px 14px",
     borderRadius: 8,
-    border: "1px solid " + (over ? "var(--accent)" : "var(--border)"),
-    background: linked ? "var(--bg-hover)" : "var(--bg-elevated)",
+    border: "1px solid " + (over ? "var(--accent)" : flagged ? "var(--crit)" : "var(--border)"),
+    background: flagged ? "var(--crit-bg)" : linked ? "var(--bg-hover)" : "var(--bg-elevated)",
     opacity: dragging ? 0.5 : 1,
     cursor: linked ? "grab" : "default",
   }),

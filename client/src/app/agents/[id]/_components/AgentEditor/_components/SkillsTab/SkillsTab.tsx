@@ -68,7 +68,12 @@ export function SkillsTab({ agent }: { agent: Agent }) {
         linked={visibleLinked}
         unlinked={visibleUnlinked}
         dragFor={dragFor}
-        onToggle={(id) => save(toggleLinked(linkedIds, id))}
+        onToggle={(id) => {
+          // A skill blocked by the injection gate can only be unlinked, never newly linked (server answers 422 too).
+          const blocked = unlinked.find((sk) => sk.id === id)?.injection?.detected;
+          if (blocked) return;
+          save(toggleLinked(linkedIds, id));
+        }}
       />
     </div>
   );

@@ -21,9 +21,11 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 - 2026-10-11 — The run executor flips `agent_runs` to `done` inside the persist transaction but writes `run_traces` AFTER it (best-effort) → `waitForPrRuns` can return before the trace exists; integration tests that read `/runs/:id/trace` must poll for it (flaked once under the full suite) (server/test/skills.it.test.ts:236)
 
 ## Tool & Library Notes
+- 2026-10-12 — Fastify answers 400 to DELETE (or any body-less request) sent with Content-Type: application/json and an empty body → scripts/clients calling DELETE /skills/:id must omit the JSON content-type header (server/src/modules/skills/routes.ts:55)
 
 ## Recurring Errors & Fixes
 - 2026-10-11 — Run-trace jsonb: `skills_used` lives at `trace->'prompt_assembly'->'skills_used'` (not the trace root) → a jsonb filter on the root silently matches nothing, so skill Stats showed 0 findings while runs had many; keep the IT assertion on /skills/:id/stats after a real run (server/src/modules/skills/repository.ts:161, server/test/skills.it.test.ts:299)
+- 2026-10-12 — A skill's injection flag is derived on read from name+description+body (no column): linking, prompt assembly and the DTO must all call detectInjection, and a re-save of an agent's skill set must still allow already-linked flagged skills or reordering other skills 422s → keep the three enforcement points in sync (server/src/modules/agents/service.ts:190, server/src/modules/reviews/run-executor.ts:360, server/src/modules/skills/helpers.ts:35)
 
 ## Session Notes
 - 2026-10-07 — Run Cost Badge: re-added `agent_runs.cost_usd` (migration 0010, after 0009 dropped it); partial cost on failed runs comes from reviewer-core `onUsage` [supersedes the same entry without file:line] (server/src/db/schema/runs.ts:22, server/src/modules/reviews/run-executor.ts:216)

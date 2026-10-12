@@ -108,4 +108,34 @@ describe("SkillsTab", () => {
     renderTab();
     expect(screen.getByRole("link", { name: messages.skills.emptyCta })).toHaveAttribute("href", "/skills");
   });
+
+  describe("injection gate", () => {
+    const FLAGGED = { detected: true, reasons: ["Instruction override"] };
+
+    it("a flagged, not-linked skill has a disabled checkbox and a red badge; clicking it links nothing", () => {
+      SKILLS = [...ORIGINAL.filter((x) => x.id !== "d"), skill("d", "delta", { injection: FLAGGED })];
+      renderTab();
+      const box = screen.getByRole("checkbox", { name: "delta" });
+      expect(box).toBeDisabled();
+      expect(within(screen.getByTestId("skill-row-delta")).getByText("Injection detected")).toBeInTheDocument();
+      fireEvent.click(box);
+      expect(setMutate).not.toHaveBeenCalled();
+    });
+
+    it("a flagged skill that is already linked can still be unlinked", () => {
+      SKILLS = ORIGINAL.map((x) => (x.id === "a" ? { ...x, injection: FLAGGED } : x));
+      renderTab();
+      const box = screen.getByRole("checkbox", { name: "alpha" });
+      expect(box).toBeEnabled();
+      fireEvent.click(box);
+      expect(setMutate).toHaveBeenLastCalledWith(["b", "c"]);
+    });
+
+    it("a fixed skill (flag cleared) can be linked again", () => {
+      SKILLS = ORIGINAL.map((x) => (x.id === "d" ? { ...x, injection: { detected: false, reasons: [] } } : x));
+      renderTab();
+      fireEvent.click(screen.getByRole("checkbox", { name: "delta" }));
+      expect(setMutate).toHaveBeenLastCalledWith(["b", "c", "a", "d"]);
+    });
+  });
 });

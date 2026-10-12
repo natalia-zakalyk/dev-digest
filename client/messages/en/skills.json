@@ -6,14 +6,10 @@
     "addSkill": "Add Skill",
     "searchPlaceholder": "Search skills…",
     "loadError": "Could not load skills.",
-    "menu": {
-      "create": "Create from scratch",
-      "import": "Import .md / .zip"
-    },
     "empty": {
       "title": "No skills yet",
       "body": "A skill is a block of review rules that several agents can share. Create one or import a SKILL.md.",
-      "cta": "Create your first skill"
+      "cta": "Add your first skill"
     },
     "noMatch": "No skills match \"{query}\"."
   },
@@ -141,5 +137,30 @@
   "evalsTab": {
     "title": "Evals are coming soon",
     "body": "Run this skill against a golden set of pull requests to see how it scores."
+  },
+  "add": {
+    "title": "Add skill",
+    "tabs": {
+      "create": "Create",
+      "file": "From file",
+      "url": "Import from URL"
+    },
+    "prefilled": "Review the imported skill, then save it. Nothing has been saved yet.",
+    "file": {
+      "nameLabel": "Skill name",
+      "nameHint": "Optional — derived from the first heading if blank.",
+      "fileLabel": "File (.md or .zip)",
+      "badType": "Only .md or .zip files can be imported.",
+      "import": "Import skill"
+    },
+    "url": {
+      "hint": "Only GitHub-hosted files are fetched (raw.githubusercontent.com, gist.githubusercontent.com, github.com). The text is checked for prompt injection before you save it.",
+      "urlLabel": "URL (https:// only)",
+      "urlPlaceholder": "https://raw.githubusercontent.com/org/repo/main/skill.md",
+      "nameLabel": "Skill name",
+      "namePlaceholder": "my-skill",
+      "import": "Import from URL",
+      "importing": "Fetching…"
+    }
   }
 }

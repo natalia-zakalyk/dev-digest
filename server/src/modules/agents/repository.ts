@@ -242,14 +242,16 @@ export class AgentsRepository {
     return new Map(rows.map((r) => [r.agentId, Number(r.n)]));
   }
 
-  /** How many of `skillIds` exist in this workspace (guards cross-tenant links). */
-  async countWorkspaceSkills(workspaceId: string, skillIds: string[]): Promise<number> {
-    if (skillIds.length === 0) return 0;
-    const [row] = await this.db
-      .select({ n: count() })
+  /** The skills among `skillIds` that exist in this workspace (guards cross-tenant links, feeds the injection gate). */
+  async workspaceSkillsByIds(
+    workspaceId: string,
+    skillIds: string[],
+  ): Promise<{ id: string; name: string; description: string; body: string }[]> {
+    if (skillIds.length === 0) return [];
+    return this.db
+      .select({ id: t.skills.id, name: t.skills.name, description: t.skills.description, body: t.skills.body })
       .from(t.skills)
       .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, skillIds)));
-    return Number(row?.n ?? 0);
   }
 
   async skillIdsForAgent(agentId: string): Promise<string[]> {

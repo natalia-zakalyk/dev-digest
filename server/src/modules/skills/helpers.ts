@@ -1,4 +1,5 @@
 import type { Skill, SkillSource, SkillStats, SkillSummary, SkillType, SkillVersion } from '@devdigest/shared';
+import { detectInjection } from './domain/injection.js';
 
 /** Pure helpers for the skills module — record → DTO mapping and prompt-block formatting. */
 
@@ -32,6 +33,8 @@ export function toSkillDto(row: SkillRecord): Skill {
     version: row.version,
     evidence_files: row.evidenceFiles ?? null,
     created_at: row.createdAt.toISOString(),
+    // Derived on read (never stored): fixing the text clears it. See specs/skills.md § Injection gate.
+    injection: detectInjection(row),
   };
 }
 
@@ -148,4 +151,14 @@ export function toSkillSummaries(skillIds: string[], rows: SummaryUsageRows): Sk
       accept_rate: percent(acc, acc + (dismissed.get(id) ?? 0)),
     };
   });
+}
+
+/** Last path segment, used as the file name handed to the importer. */
+export function filenameFromUrl(url: string): string {
+  const last = new URL(url).pathname.split('/').filter(Boolean).pop() ?? 'skill.md';
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
 }

@@ -68,4 +68,22 @@ describe("SkillCard", () => {
     expect(onToggle).toHaveBeenCalledWith(false);
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
+
+  describe("injection gate", () => {
+    const FLAGGED = { detected: true, reasons: ["Instruction override"] };
+
+    it("frames a flagged skill in red and shows the Injection detected badge", () => {
+      renderCard({ skill: { ...SKILL, injection: FLAGGED } });
+      expect(screen.getByText("Injection detected")).toBeInTheDocument();
+      const card = screen.getByRole("button", { name: "over-mocking" }).closest("[data-flagged]");
+      expect(card).not.toBeNull();
+      expect((card as HTMLElement).style.border).toContain("var(--crit)");
+    });
+
+    it("a clean or unscanned skill has no badge and no red frame", () => {
+      renderCard({ skill: { ...SKILL, injection: { detected: false, reasons: [] } } });
+      expect(screen.queryByText("Injection detected")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "over-mocking" }).closest("[data-flagged]")).toBeNull();
+    });
+  });
 });

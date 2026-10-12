@@ -118,6 +118,16 @@ export type SkillType = z.infer<typeof SkillType>;
 export const SkillSource = z.enum(['manual', 'imported_url', 'imported_file', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
+/**
+ * Prompt-injection scan of a skill's name + description + body. Derived on read (never stored):
+ * fixing the text clears it. A flagged skill is saved but cannot be linked to an agent.
+ */
+export const SkillInjection = z.object({
+  detected: z.boolean(),
+  reasons: z.array(z.string()),
+});
+export type SkillInjection = z.infer<typeof SkillInjection>;
+
 export const Skill = z.object({
   id: z.string(),
   name: z.string(),
@@ -129,6 +139,7 @@ export const Skill = z.object({
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
   created_at: z.string().nullish(),
+  injection: SkillInjection.optional(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -204,8 +215,16 @@ export const SkillImportPreview = z.object({
   /** Archive entries that were NOT decompressed, stored or executed. */
   ignored_files: z.array(z.string()),
   warnings: z.array(z.string()),
+  injection: SkillInjection.optional(),
 });
 export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
+
+/** POST /skills/import/url — a GitHub-hosted `.md` / `.zip` (https only); `name` overrides the parsed name. */
+export const SkillImportUrlRequest = z.object({
+  url: z.string().trim().url().max(2048),
+  name: z.string().trim().max(120).optional(),
+});
+export type SkillImportUrlRequest = z.infer<typeof SkillImportUrlRequest>;
 
 export const CommunitySkill = z.object({
   name: z.string(),

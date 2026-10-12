@@ -35,7 +35,8 @@
       "descriptionPlaceholder": "What this agent reviews",
       "provider": "Provider",
       "model": "Model",
-      "systemPrompt": "System prompt"
+      "systemPrompt": "System prompt",
+      "modelLoading": "Loading models…"
     }
   },
   "editor": {
@@ -101,7 +102,8 @@
     "emptyCta": "Create a skill",
     "noMatch": "No skills match the filter.",
     "dragHandle": "Reorder {name}",
-    "disabledGlobally": "Disabled globally — not in prompt"
+    "disabledGlobally": "Disabled globally — not in prompt",
+    "injectionBlocked": "Blocked — injection detected. Fix the skill text to link it."
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

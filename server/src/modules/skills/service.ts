@@ -9,9 +9,10 @@ import type {
   UpdateSkillBody,
 } from '@devdigest/shared';
 import { SkillsRepository } from './repository.js';
-import { toSkillDto, toSkillStats, toSkillSummaries, toSkillVersion } from './helpers.js';
+import { filenameFromUrl, toSkillDto, toSkillStats, toSkillSummaries, toSkillVersion } from './helpers.js';
 import { STATS_WINDOW_DAYS } from './constants.js';
 import { previewSkillImport } from './domain/importer.js';
+import { detectInjection } from './domain/injection.js';
 
 /**
  * L02 — skills service. CRUD for the workspace's reusable, text-only skills and
@@ -20,7 +21,7 @@ import { previewSkillImport } from './domain/importer.js';
 export class SkillsService {
   private repo: SkillsRepository;
 
-  constructor(container: Container) {
+  constructor(private container: Container) {
     this.repo = new SkillsRepository(container.db);
   }
 
@@ -86,8 +87,23 @@ export class SkillsService {
     return this.repo.deleteById(workspaceId, id);
   }
 
-  /** Parse an uploaded `.md` / `.zip` into a preview. Writes nothing. */
+  /** Parse an uploaded `.md` / `.zip` into a preview (with its injection scan). Writes nothing. */
   previewImport(filename: string, contentBase64: string): SkillImportPreview {
-    return previewSkillImport(filename, contentBase64);
+    return withInjection(previewSkillImport(filename, contentBase64));
   }
+
+  /**
+   * Download a GitHub-hosted `.md` / `.zip` (UrlFetcher enforces host allowlist, size, redirects) and run it
+   * through the same importer as a file upload. `name` overrides the parsed name. Writes nothing.
+   */
+  async importFromUrl(url: string, name?: string): Promise<SkillImportPreview> {
+    const res = await this.container.urlFetcher.fetch(url);
+    const preview = previewSkillImport(filenameFromUrl(res.finalUrl), Buffer.from(res.bytes).toString('base64'));
+    return withInjection(name ? { ...preview, name } : preview);
+  }
+}
+
+/** Attach the injection scan so the UI can warn before the skill is even saved. */
+function withInjection(preview: SkillImportPreview): SkillImportPreview {
+  return { ...preview, injection: detectInjection(preview) };
 }

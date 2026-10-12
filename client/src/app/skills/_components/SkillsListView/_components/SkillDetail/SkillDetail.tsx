@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button, Icon, Tabs } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { SkillTypeBadge, SKILL_TYPE_COLORS } from "@/components/skill-type-badge";
+import { InjectionBadge, InjectionBanner } from "@/components/skill-injection";
 import { ConfigTab } from "./_components/ConfigTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { EvalsTab } from "./_components/EvalsTab";
@@ -33,6 +34,7 @@ export function SkillDetail({
 
   return (
     <section style={s.root} aria-label={skill.name}>
+      <InjectionBanner injection={skill.injection} />
       <div style={s.header}>
         <div style={s.iconBox(color, bg)}>
           <Icon.Sparkles size={17} />
@@ -41,6 +43,7 @@ export function SkillDetail({
           {skill.name}
         </h2>
         <SkillTypeBadge type={skill.type} />
+        <InjectionBadge injection={skill.injection} />
         <span className="mono" style={s.version}>
           <Icon.GitCommit size={12} />
           {t("preview.version", { version: skill.version })}

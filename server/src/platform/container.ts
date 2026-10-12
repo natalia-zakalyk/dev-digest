@@ -1,4 +1,5 @@
 import type {
+  UrlFetcher,
   AuthProvider,
   SecretsProvider,
   GitHubClient,
@@ -16,6 +17,7 @@ import { LocalNoAuthProvider } from '../adapters/auth/local.js';
 import { OctokitGitHubClient } from '../adapters/github/octokit.js';
 import { SimpleGitClient } from '../adapters/git/simple-git.js';
 import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
+import { SafeHttpsFetcher } from '../adapters/urlfetch/index.js';
 import { OpenAIProvider } from '../adapters/llm/openai.js';
 import { AnthropicProvider } from '../adapters/llm/anthropic.js';
 import { OpenAIEmbedder } from '../adapters/embedder/openai.js';
@@ -51,6 +53,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Skill import by URL (GitHub hosts only) — tests inject MockUrlFetcher. */
+  urlFetcher?: UrlFetcher;
   /** Run event bus (defaults to the process-wide singleton). */
   runBus?: RunBus;
 }
@@ -77,6 +81,7 @@ export class Container {
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
+  private _urlFetcher?: UrlFetcher;
   private _priceBook?: PriceBook;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
@@ -127,6 +132,13 @@ export class Container {
   }
 
   /** Token counter (js-tiktoken) for the repo-map budget search. */
+  /** Downloads a skill file from an allow-listed GitHub host (see adapters/urlfetch). */
+  get urlFetcher(): UrlFetcher {
+    if (this.overrides.urlFetcher) return this.overrides.urlFetcher;
+    this._urlFetcher ??= new SafeHttpsFetcher();
+    return this._urlFetcher;
+  }
+
   get tokenizer(): Tokenizer {
     if (this.overrides.tokenizer) return this.overrides.tokenizer;
     this._tokenizer ??= new TiktokenTokenizer();

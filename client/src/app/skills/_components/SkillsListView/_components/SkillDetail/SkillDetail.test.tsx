@@ -48,11 +48,11 @@ const SKILL: Skill = {
   version: 2,
 };
 
-function renderDetail() {
+function renderDetail(skill: Skill = SKILL) {
   render(
     <NextIntlClientProvider locale="en" messages={{ skills: messages, common }}>
       <ToastProvider>
-        <SkillDetail skill={SKILL} onEdit={vi.fn()} onDeleted={vi.fn()} onToggle={vi.fn()} />
+        <SkillDetail skill={skill} onEdit={vi.fn()} onDeleted={vi.fn()} onToggle={vi.fn()} />
       </ToastProvider>
     </NextIntlClientProvider>,
   );
@@ -86,5 +86,20 @@ describe("SkillDetail", () => {
   it("keeps Run on evals disabled", () => {
     renderDetail();
     expect(screen.getByRole("button", { name: messages.detail.runOnEvals })).toBeDisabled();
+  });
+
+  it("shows the red INJECTION DETECTED banner and badge for a flagged skill, leaving the Enabled toggle alone", () => {
+    renderDetail({ ...SKILL, injection: { detected: true, reasons: ["Verdict manipulation"] } });
+    expect(screen.getByRole("alert")).toHaveTextContent("INJECTION DETECTED — DO NOT ENABLE");
+    expect(screen.getByRole("alert")).toHaveTextContent("Verdict manipulation");
+    expect(screen.getByText("Injection detected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Config" }));
+    expect(screen.getByRole("switch")).toBeEnabled();
+  });
+
+  it("a fixed skill (flag cleared) shows neither banner nor badge", () => {
+    renderDetail({ ...SKILL, injection: { detected: false, reasons: [] } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Injection detected")).not.toBeInTheDocument();
   });
 });

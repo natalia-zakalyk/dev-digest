@@ -102,8 +102,8 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 - **Interactions:** client-side search; **Add agent ▾** → "Create from scratch" or a template item (Security, Performance, Mentor, Conformance, Architecture — all currently just open the blank `CreateAgentModal`); after create → `/agents/:id?tab=config`; card click (the card is a link) → `/agents/:id?tab=config`; delete asks first in a `ConfirmDialog`.
 
 ## `/skills` — Skills (L02)
-See [skills.md](skills.md): grid of skill cards (global enable toggle), side preview, create/edit modal,
-import drawer (`.md` / `.zip` → preview → confirm).
+See [skills.md](skills.md): grid of skill cards (global enable toggle), side preview, edit modal, one **Add skill** modal
+(Create · From file `.md`/`.zip` · Import from URL), and the red "Injection detected" state for blocked skills.
 
 ## `/agents/:id` — Agent editor
 - **Query params:** `?tab` — `config` (default) or `skills`; anything else falls back to `config`.

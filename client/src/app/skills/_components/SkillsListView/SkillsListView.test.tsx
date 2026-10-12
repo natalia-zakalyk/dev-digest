@@ -41,6 +41,7 @@ vi.mock("@/lib/hooks/skills", () => ({
   useDeleteSkill: () => ({ mutate: vi.fn(), isPending: false }),
   useCreateSkill: () => ({ mutate: vi.fn(), isPending: false }),
   useImportSkillPreview: () => ({ mutate: vi.fn(), isPending: false }),
+  useImportSkillFromUrl: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 // The shell needs routing/repo context; the page body is what we test here.
 vi.mock("@/components/app-shell", () => ({
@@ -104,5 +105,15 @@ describe("SkillsListView", () => {
     fireEvent.click(screen.getByRole("button", { name: "flaky-tests" }));
     fireEvent.click(screen.getByRole("button", { name: "Config" }));
     expect(screen.getByText("external instructions")).toBeInTheDocument();
+  });
+
+  it("Add Skill opens one modal with the Create / From file / Import from URL tabs", () => {
+    renderView();
+    expect(screen.queryByText("Add skill")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Skill" }));
+    expect(screen.getByText("Add skill")).toBeInTheDocument();
+    for (const name of ["Create", "From file", "Import from URL"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
   });
 });

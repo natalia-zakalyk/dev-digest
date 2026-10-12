@@ -10,6 +10,7 @@ import type {
   Skill,
   SkillImportPreview,
   SkillImportRequest,
+  SkillImportUrlRequest,
   SkillStats,
   SkillSummary,
   SkillVersion,
@@ -85,6 +86,13 @@ export function useImportSkillPreview() {
   return useMutation({
     mutationFn: (input: SkillImportRequest) =>
       api.post<SkillImportPreview>("/skills/import/preview", input),
+  });
+}
+
+/** Fetch a GitHub-hosted .md / .zip into a preview (with its injection scan). Writes nothing on the server. */
+export function useImportSkillFromUrl() {
+  return useMutation({
+    mutationFn: (input: SkillImportUrlRequest) => api.post<SkillImportPreview>("/skills/import/url", input),
   });
 }
 

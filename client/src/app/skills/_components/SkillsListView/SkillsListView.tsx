@@ -5,13 +5,13 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, Dropdown, EmptyState, ErrorState, Skeleton, Icon } from "@devdigest/ui";
+import { Button, EmptyState, ErrorState, Skeleton, Icon } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
 import { useSkills, useSkillSummaries, useUpdateSkill } from "@/lib/hooks/skills";
 import { SkillCard } from "./_components/SkillCard";
 import { SkillDetail } from "./_components/SkillDetail";
 import { SkillEditorModal } from "./_components/SkillEditorModal";
-import { ImportSkillDrawer } from "./_components/ImportSkillDrawer";
+import { AddSkillModal } from "./_components/AddSkillModal";
 import type { SkillsOverlay } from "./constants";
 import { filterSkills } from "./helpers";
 import { s } from "./styles";
@@ -44,19 +44,9 @@ export function SkillsListView() {
         <aside style={s.left}>
           <div style={s.header}>
             <h1 style={s.title}>{t("page.heading")}</h1>
-            <Dropdown
-              width={220}
-              align="right"
-              trigger={
-                <Button kind="primary" size="sm" icon="Plus" iconRight="ChevronDown">
-                  {t("page.addSkill")}
-                </Button>
-              }
-              items={[
-                { label: t("page.menu.create"), icon: "Edit", onClick: () => setOverlay({ kind: "create" }) },
-                { label: t("page.menu.import"), icon: "Upload", onClick: () => setOverlay({ kind: "import" }) },
-              ]}
-            />
+            <Button kind="primary" size="sm" icon="Plus" onClick={() => setOverlay({ kind: "add" })}>
+              {t("page.addSkill")}
+            </Button>
           </div>
           <div style={s.search}>
             <Icon.Search size={13} style={s.searchIcon} />
@@ -83,7 +73,7 @@ export function SkillsListView() {
               title={t("page.empty.title")}
               body={t("page.empty.body")}
               cta={t("page.empty.cta")}
-              onCta={() => setOverlay({ kind: "create" })}
+              onCta={() => setOverlay({ kind: "add" })}
             />
           )}
           {all.length > 0 && list.length === 0 && (
@@ -120,10 +110,9 @@ export function SkillsListView() {
         </div>
       </div>
 
-      {overlay.kind === "create" && <SkillEditorModal onClose={close} />}
       {editing && <SkillEditorModal skill={editing} onClose={close} />}
-      {overlay.kind === "import" && (
-        <ImportSkillDrawer
+      {overlay.kind === "add" && (
+        <AddSkillModal
           onClose={close}
           onSaved={(id) => {
             setSelectedId(id);

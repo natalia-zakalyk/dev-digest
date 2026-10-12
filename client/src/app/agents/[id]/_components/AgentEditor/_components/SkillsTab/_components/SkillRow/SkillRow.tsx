@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Badge, Checkbox, Icon } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { SkillTypeBadge } from "@/components/skill-type-badge";
+import { InjectionBadge } from "@/components/skill-injection";
 import { s } from "./styles";
 
 /** Drag-and-drop state and handlers of one row (only linked rows are draggable). */
@@ -32,6 +33,8 @@ export function SkillRow({
   drag: SkillRowDrag;
 }) {
   const t = useTranslations("agents");
+  // A skill blocked by the injection gate cannot be NEWLY linked; one that is already linked can still be unlinked.
+  const blocked = !!skill.injection?.detected && !linked;
   return (
     <li
       data-testid={`skill-row-${skill.name}`}
@@ -40,7 +43,7 @@ export function SkillRow({
       onDragOver={linked ? drag.onOver : undefined}
       onDrop={linked ? drag.onDrop : undefined}
       onDragEnd={drag.onEnd}
-      style={s.row({ linked, dragging: drag.dragging, over: drag.over })}
+      style={s.row({ linked, dragging: drag.dragging, over: drag.over, flagged: !!skill.injection?.detected })}
     >
       {linked ? (
         <button
@@ -58,12 +61,15 @@ export function SkillRow({
       <Checkbox
         checked={linked}
         onChange={onToggle}
+        disabled={blocked}
+        title={blocked ? t("skills.injectionBlocked") : undefined}
         label={
           <span className="mono" style={s.name(skill.enabled)}>
             {skill.name}
           </span>
         }
       />
+      <InjectionBadge injection={skill.injection} />
       {!skill.enabled && (
         <Badge color="var(--text-muted)" bg="var(--bg-hover)" icon="EyeOff">
           {t("skills.disabledGlobally")}

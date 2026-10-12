@@ -6,10 +6,8 @@ import messages from "../../../../../../../messages/en/skills.json";
 import common from "../../../../../../../messages/en/common.json";
 import { ToastProvider } from "@/lib/toast";
 
-const createMutate = vi.fn();
 const updateMutate = vi.fn();
 vi.mock("@/lib/hooks/skills", () => ({
-  useCreateSkill: () => ({ mutate: createMutate, isPending: false }),
   useUpdateSkill: () => ({ mutate: updateMutate, isPending: false }),
 }));
 
@@ -17,11 +15,21 @@ import { SkillEditorModal } from "./SkillEditorModal";
 
 afterEach(cleanup);
 beforeEach(() => {
-  createMutate.mockReset();
   updateMutate.mockReset();
 });
 
-function renderModal(skill?: Skill) {
+const BASE: Skill = {
+  id: "s1",
+  name: "over-mocking",
+  description: "Use when mocks.",
+  type: "convention",
+  source: "manual",
+  body: "# Over mocking",
+  enabled: true,
+  version: 2,
+};
+
+function renderModal(skill: Skill = BASE) {
   render(
     <NextIntlClientProvider locale="en" messages={{ skills: messages, common }}>
       <ToastProvider>
@@ -37,22 +45,11 @@ describe("SkillEditorModal", () => {
     expect(screen.getByText(/The description is the skill's interface/)).toBeInTheDocument();
   });
 
-  it("requires name and body before creating", () => {
+  it("requires a name and a body before saving", () => {
     renderModal();
-    const create = screen.getByRole("button", { name: "Create skill" });
-    expect(create).toBeDisabled();
-
-    fireEvent.change(screen.getByPlaceholderText("uncovered-branches"), { target: { value: "my-skill" } });
-    const textareas = screen.getAllByRole("textbox").filter((el) => el.tagName === "TEXTAREA");
-    fireEvent.change(textareas[textareas.length - 1]!, { target: { value: "# Rule\nFlag it." } });
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "security" } });
-    expect(create).toBeEnabled();
-
-    fireEvent.click(create);
-    expect(createMutate).toHaveBeenCalledWith(
-      { name: "my-skill", description: "", type: "security", body: "# Rule\nFlag it." },
-      expect.anything(),
-    );
+    fireEvent.change(screen.getByPlaceholderText("uncovered-branches"), { target: { value: "  " } });
+    expect(screen.getByRole("button", { name: "Save skill" })).toBeDisabled();
+    expect(screen.getByText("Name and body are required.")).toBeInTheDocument();
   });
 
   it("edits an existing skill and previews the markdown body", () => {
@@ -88,11 +85,6 @@ describe("SkillEditorModal", () => {
       enabled: true,
       version: 2,
     };
-
-    it("is not offered when creating", () => {
-      renderModal();
-      expect(screen.queryByText("Change note")).toBeNull();
-    });
 
     it("is sent only when the body changed", () => {
       updateMutate.mockClear();
