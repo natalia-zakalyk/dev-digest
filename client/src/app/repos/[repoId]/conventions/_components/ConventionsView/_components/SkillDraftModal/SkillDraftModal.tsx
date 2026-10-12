@@ -5,10 +5,11 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, ErrorState, FormField, Modal, SelectInput, Skeleton, TextInput, Textarea, Toggle } from "@devdigest/ui";
+import { Button, Checkbox, ErrorState, FormField, Modal, SelectInput, Skeleton, TextInput, Textarea, Toggle } from "@devdigest/ui";
 import type { SkillType } from "@devdigest/shared";
 import { useConventionSkillDraft } from "@/lib/hooks/conventions";
-import { useCreateSkill } from "@/lib/hooks/skills";
+import { useAgents } from "@/lib/hooks/agents";
+import { useCreateSkill, useLinkSkillToAgent } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { estimateTokens } from "../../helpers";
 import { BODY_ROWS, MODAL_WIDTH, SKILL_TYPES } from "./constants";
@@ -29,6 +30,11 @@ export function SkillDraftModal({
   const toast = useToast();
   const draft = useConventionSkillDraft(repoId);
   const create = useCreateSkill();
+  const link = useLinkSkillToAgent();
+  const agents = useAgents();
+  const [agentIds, setAgentIds] = React.useState<string[]>([]);
+  const toggleAgent = (id: string) =>
+    setAgentIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [type, setType] = React.useState<SkillType>("convention");
@@ -60,6 +66,14 @@ export function SkillDraftModal({
       {
         onSuccess: (saved) => {
           toast.success(t("modal.created", { name: saved.name }));
+          // Optional "link to agents" step: one link call per ticked agent.
+          Promise.all(agentIds.map((agentId) => link.mutateAsync({ agentId, skillId: saved.id }).then(() => true, () => false))).then(
+            (results) => {
+              const failed = results.filter((ok) => !ok).length;
+              if (agentIds.length > 0 && failed === 0) toast.success(t("modal.linked", { count: agentIds.length }));
+              if (failed > 0) toast.error(t("modal.linkFailed", { count: failed }));
+            },
+          );
           onClose();
         },
       },
@@ -106,6 +120,14 @@ export function SkillDraftModal({
                 <Toggle on={enabled} onChange={setEnabled} />
               </FormField>
             </div>
+            <FormField label={t("modal.linkAgents")} hint={t("modal.linkAgentsHint")}>
+              <div style={s.agents}>
+                {(agents.data ?? []).length === 0 && <span style={s.meta}>{t("modal.noAgents")}</span>}
+                {(agents.data ?? []).map((a) => (
+                  <Checkbox key={a.id} checked={agentIds.includes(a.id)} onChange={() => toggleAgent(a.id)} label={a.name} />
+                ))}
+              </div>
+            </FormField>
             <FormField
               label={t("modal.body")}
               required

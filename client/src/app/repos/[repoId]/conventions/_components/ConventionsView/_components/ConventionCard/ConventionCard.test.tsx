@@ -57,7 +57,7 @@ describe("ConventionCard", () => {
 
   it("edits the rule inline and saves the trimmed new value", () => {
     const { onEditRule } = renderCard();
-    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "  Prefer await  " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onEditRule).toHaveBeenCalledTimes(1);
@@ -67,10 +67,10 @@ describe("ConventionCard", () => {
   it("does not save an unchanged or blank rule", () => {
     const { onEditRule } = renderCard();
     // unchanged
-    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     // blank
-    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "   " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onEditRule).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe("ConventionCard", () => {
 
   it("cancel discards the draft", () => {
     const { onEditRule } = renderCard();
-    fireEvent.click(screen.getByRole("button", { name: "Edit rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "Something else" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onEditRule).not.toHaveBeenCalled();

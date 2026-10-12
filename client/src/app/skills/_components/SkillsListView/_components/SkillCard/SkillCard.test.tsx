@@ -22,12 +22,13 @@ const SKILL: Skill = {
 function renderCard(props: Partial<React.ComponentProps<typeof SkillCard>> = {}) {
   const onOpen = vi.fn();
   const onToggle = vi.fn();
+  const onDelete = vi.fn();
   render(
     <NextIntlClientProvider locale="en" messages={{ skills: messages, common }}>
-      <SkillCard skill={SKILL} onOpen={onOpen} onToggle={onToggle} {...props} />
+      <SkillCard skill={SKILL} onOpen={onOpen} onToggle={onToggle} onDelete={onDelete} {...props} />
     </NextIntlClientProvider>,
   );
-  return { onOpen, onToggle };
+  return { onOpen, onToggle, onDelete };
 }
 
 describe("SkillCard", () => {
@@ -85,5 +86,17 @@ describe("SkillCard", () => {
       expect(screen.queryByText("Injection detected")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "over-mocking" }).closest("[data-flagged]")).toBeNull();
     });
+  });
+
+  it("shows the version and deletes only after the confirm dialog", () => {
+    const { onDelete } = renderCard();
+    expect(screen.getByTestId("skill-card-version")).toHaveTextContent("v2");
+    fireEvent.click(screen.getByRole("button", { name: "Delete over-mocking" }));
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Delete over-mocking" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

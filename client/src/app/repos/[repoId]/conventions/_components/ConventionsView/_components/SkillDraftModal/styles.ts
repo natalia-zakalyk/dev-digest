@@ -13,6 +13,7 @@ export const s = {
     color: "var(--text-secondary)",
   } satisfies CSSProperties,
   row: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 } satisfies CSSProperties,
+  agents: { display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
   hint: { fontSize: 12, color: "var(--text-muted)", marginTop: 8 } satisfies CSSProperties,
   footer: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 } satisfies CSSProperties,
   meta: { marginRight: "auto", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,

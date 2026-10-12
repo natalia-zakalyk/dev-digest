@@ -16,9 +16,12 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'rule';
 
+/** Default skill name offered in the Create-skill modal (editable before saving). */
+const DEFAULT_SKILL_NAME = 'repo-conventions';
+
 /** Merge accepted conventions into one editable `convention` skill. Pure. */
 export function buildSkillDraft(repoName: string, items: DraftConvention[]): ConventionSkillDraft {
-  const name = `${slug(repoName)}-conventions`;
+  const name = DEFAULT_SKILL_NAME;
   const sections = items.map((c) => {
     const lines = [`## ${slug(c.rule)}`, c.rule, ''];
     if (c.category) lines.push(`Category: ${c.category}`, '');

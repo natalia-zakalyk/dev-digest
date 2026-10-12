@@ -35,6 +35,8 @@ export function ConventionsView() {
   const all = data?.candidates ?? [];
   const acceptedIds = all.filter((c) => c.status === "accepted").map((c) => c.id);
   const visible = filterByStatus(all, filter);
+  const scanned = Boolean(data?.last_scan_at) || all.length > 0;
+  const scanLabel = scanned ? t("page.rescan") : t("page.runScan");
 
   const runExtraction = () =>
     extract.mutate(undefined, {
@@ -75,7 +77,7 @@ export function ConventionsView() {
           </div>
           <div style={s.spacer}>
             <Button icon="RefreshCw" onClick={runExtraction} loading={extract.isPending} disabled={extract.isPending}>
-              {extract.isPending ? t("page.scanning") : t("page.rescan")}
+              {extract.isPending ? t("page.scanning") : scanLabel}
             </Button>
           </div>
         </div>
@@ -108,11 +110,13 @@ export function ConventionsView() {
                   {t(`filters.${f}`)}
                 </Chip>
               ))}
-              <div style={s.spacer}>
-                <Button kind="primary" icon="Sparkles" disabled={acceptedIds.length === 0} onClick={() => setModalOpen(true)}>
-                  {t("page.createSkill")}
-                </Button>
-              </div>
+              {acceptedIds.length > 0 && (
+                <div style={s.spacer}>
+                  <Button kind="primary" icon="Sparkles" onClick={() => setModalOpen(true)}>
+                    {t("page.createSkill")}
+                  </Button>
+                </div>
+              )}
             </div>
             <div style={s.list}>
               {visible.map((c) => (

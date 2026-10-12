@@ -11,6 +11,9 @@ Specs: [server](../../server/specs/skills.md) · [UI](../../client/specs/skills.
 | [over-mocking](over-mocking/SKILL.md) | convention | Test Quality Reviewer | seed |
 | [flaky-tests](flaky-tests/SKILL.md) | convention | Test Quality Reviewer (link it yourself) | **import** `flaky-tests.zip` in the UI |
 | [api-contract-breaking-change](api-contract-breaking-change/SKILL.md) | convention | General Reviewer | seed |
+| [breaking-change](breaking-change/SKILL.md) | convention | API Contract Reviewer | created in the UI (manual) |
+| [response-schema](response-schema/SKILL.md) | rubric | API Contract Reviewer | created in the UI (manual) |
+| [deprecation-policy](deprecation-policy/SKILL.md) | convention | API Contract Reviewer | created in the UI (manual) |
 | [semver-discipline](semver-discipline/SKILL.md) | rubric | API Contract Reviewer | **import** `semver-discipline.zip` in the UI |
 | [prompt-injection-demo](prompt-injection-demo/SKILL.md) | custom | **never** (test fixture) | **import** `prompt-injection-demo.zip` in the UI |
 

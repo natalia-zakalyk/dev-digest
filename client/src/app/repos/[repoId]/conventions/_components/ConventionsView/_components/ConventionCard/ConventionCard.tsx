@@ -58,7 +58,9 @@ export function ConventionCard({
             <>
               <h3 style={s.rule}>{convention.rule}</h3>
               {convention.category && <Badge mono>{convention.category}</Badge>}
-              <IconBtn icon="Edit" label={t("card.edit")} size={26} onClick={() => setEditing(true)} />
+              <Button size="sm" kind="ghost" icon="Edit" onClick={() => setEditing(true)}>
+                {t("card.edit")}
+              </Button>
             </>
           )}
         </div>

@@ -87,7 +87,7 @@ describe("SkillsListView", () => {
 
   it("orders the tabs, disables Run on evals and stubs the Evals tab", () => {
     renderView();
-    const names = ["Config", "Preview", "Evals", "Stats", "Versions"];
+    const names = ["Config", "Preview", "Evals", "Stats", "Versioning"];
     const tabs = screen.getAllByRole("button").filter((b) => names.includes(b.textContent ?? ""));
     expect(tabs.map((b) => b.textContent)).toEqual(names);
     expect(screen.getByRole("button", { name: "Run on evals" })).toBeDisabled();

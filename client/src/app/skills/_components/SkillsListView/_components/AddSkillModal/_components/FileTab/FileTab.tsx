@@ -27,11 +27,13 @@ export function FileTab({ onSaved }: { onSaved: (id: string) => void }) {
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [preview, setPreview] = React.useState<SkillImportPreview | null>(null);
   const [body, setBody] = React.useState("");
+  const [description, setDescription] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
 
   const reset = () => {
     setPreview(null);
     setBody("");
+    setDescription("");
     setFileName(null);
   };
 
@@ -60,6 +62,7 @@ export function FileTab({ onSaved }: { onSaved: (id: string) => void }) {
         onSuccess: (p) => {
           setPreview(p);
           setBody(p.body);
+          setDescription(p.description);
           if (!typeTouched) setType(p.type);
         },
         onError: reset,
@@ -72,7 +75,7 @@ export function FileTab({ onSaved }: { onSaved: (id: string) => void }) {
     create.mutate(
       {
         name: skillName.trim() || preview.name,
-        description: preview.description,
+        description: description.trim(),
         type,
         body,
         source: "imported_file",
@@ -159,6 +162,9 @@ export function FileTab({ onSaved }: { onSaved: (id: string) => void }) {
               </ul>
             </div>
           )}
+          <FormField label={t("editor.description")} hint={t("add.file.descriptionHint")}>
+            <TextInput value={description} onChange={setDescription} />
+          </FormField>
           <FormField label={t("import.bodyPreview")} required>
             <Textarea value={body} onChange={setBody} rows={12} mono />
           </FormField>

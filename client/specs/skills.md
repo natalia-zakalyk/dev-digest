@@ -63,3 +63,9 @@ Status: implemented · Lab L02 · Server side: [server/specs/skills.md](../../se
 
 ## Run trace
 Prompt assembly's Skills block lists the skill names and `~T tokens` when the trace has them.
+
+## Lab-criteria additions
+- Sidebar: **SKILLS LAB** section holds Agents · Skills · Conventions (Pull Requests stays in WORKSPACE).
+- Skill card: `vN` version badge, agents count, trash button → ConfirmDialog (confirm / cancel / ×).
+- Route `/skills/:id` opens the page with that skill selected; opening another card rewrites the URL (`history.replaceState`).
+- Detail tabs: Config · Preview · Evals · Stats · **Versioning** (diff + restore).

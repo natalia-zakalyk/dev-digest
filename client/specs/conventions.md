@@ -3,10 +3,10 @@
 Status: implemented (server + UI) · Lab L02 (extension) · Server side: [server/specs/conventions.md](../../server/specs/conventions.md)
 
 ## `/conventions` page (sidebar: Skills Lab → Conventions)
-- Header "Conventions in `<repo>`", subline "Detected from N sample files · last scan 1h ago", **Re-scan** button
+- Header "Conventions in `<repo>`", subline "Detected from N sample files · last scan 1h ago", **Run Scan** button (first run) that becomes **ReScan** once a scan exists
   (`POST /repos/:id/conventions/extract`; spinner + disabled while running).
-- Toolbar: Select all / Deselect all · "K of N accepted" · primary **Create skill** (disabled at K = 0).
-- Candidate card: rule title (inline-editable via pencil → `PATCH /conventions/:id`), category chip, evidence
+- Toolbar: Select all / Deselect all · "K of N accepted" · primary **Create skill**, rendered only when K ≥ 1 (after the first Accept).
+- Candidate card: rule title (inline-editable via the text **Edit** button → `PATCH /conventions/:id`), category chip, evidence
   `path:start-end` (copy button) + code snippet, confidence bar (green ≥ 85, amber 60–84, red below), buttons
   **Accept / Reject** (toggle, `PATCH status`). Rejected cards collapse/dim; filter chips: All · Pending · Accepted · Rejected · by category.
 - **States:** never scanned → `EmptyState` with "Scan repository" · scanning → skeletons · error → `ErrorState` + Retry ·
@@ -23,8 +23,8 @@ Status: implemented (server + UI) · Lab L02 (extension) · Server side: [server
 ## Implementation notes
 - Built: page `repos/[repoId]/conventions` (`ConventionsView` → `ConventionCard`, `SkillDraftModal`), hooks `lib/hooks/conventions.ts`,
   nav item "Conventions" (`g c`) in `vendor/ui/nav.ts`, namespace `messages/en/conventions.json`.
-- Deferred from v1: category filter chips (status filter only) and the optional "Link to agents" step after saving —
-  link the new skill via the agent editor's Skills tab for now. "Select all" patches each card (N requests).
+- The modal's name defaults to `repo-conventions`; its optional "Link to agents" checklist links the saved skill
+  (`POST /agents/:id/skills { skill_id }`). Deferred from v1: category filter chips (status filter only). "Select all" patches each card (N requests).
 - Route `client/src/app/repos/[repoId]/conventions/page.tsx`, components in `_components/` (PascalCase folders + barrel),
   hooks `useConventions / useExtractConventions / useUpdateConvention / useSkillDraft` in `client/src/lib/hooks/`.
 - i18n namespace `messages/en/conventions.json` (camelCase keys); shared strings in `common`.

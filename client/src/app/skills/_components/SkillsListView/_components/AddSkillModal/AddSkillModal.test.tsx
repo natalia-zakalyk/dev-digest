@@ -109,10 +109,13 @@ describe("From file tab", () => {
     expect(screen.getByText("pack/scripts/x.sh")).toBeInTheDocument(); // ignored file, never executed
     fireEvent.change(body, { target: { value: "# PR quality\nCheck it twice." } });
     fireEvent.change(screen.getByPlaceholderText("uncovered-branches"), { target: { value: "my-name" } });
+    // The description from the file is shown in its own editable field.
+    const desc = screen.getByDisplayValue("Use when reviewing PRs.");
+    fireEvent.change(desc, { target: { value: "Use when reviewing PR quality." } });
     fireEvent.click(screen.getByRole("button", { name: "Import skill" }));
     expect(createMutate.mock.calls[0]![0]).toMatchObject({
       name: "my-name",
-      description: "Use when reviewing PRs.",
+      description: "Use when reviewing PR quality.",
       type: "convention",
       body: "# PR quality\nCheck it twice.",
       source: "imported_file",

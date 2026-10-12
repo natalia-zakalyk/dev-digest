@@ -38,6 +38,14 @@ export const s = {
   } satisfies CSSProperties,
   /** Sits above the stretched button's overlay so it stays clickable. */
   raised: { position: "relative", zIndex: 1, display: "inline-flex" } satisfies CSSProperties,
+  deleteBtn: {
+    background: "none",
+    border: "none",
+    padding: 4,
+    cursor: "pointer",
+    color: "var(--text-muted)",
+    alignItems: "center",
+  } satisfies CSSProperties,
   srOnly: {
     position: "absolute",
     width: 1,

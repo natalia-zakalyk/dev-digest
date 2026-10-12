@@ -49,7 +49,7 @@ All routes workspace-scoped (404 outside the workspace); Zod bodies/params from 
 
 ## Skill draft
 Body = `# <name>` + intro line + one `## <rule slug>` section per accepted convention: rule text, category,
-`Detected in \`path:start-end\`` + snippet. Name default `<repo>-conventions`; description is a directive
+`Detected in \`path:start-end\`` + snippet. Name default `repo-conventions`; description is a directive
 ("Flag changes that violate…"). The user edits everything in the UI before the real `POST /skills`.
 
 ## Acceptance criteria

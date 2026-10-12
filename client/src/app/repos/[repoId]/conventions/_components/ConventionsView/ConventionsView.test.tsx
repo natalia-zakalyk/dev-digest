@@ -35,7 +35,11 @@ vi.mock("@/lib/hooks/conventions", () => ({
   useUpdateConvention: () => ({ mutate: updateMutate }),
   useConventionSkillDraft: () => ({ mutate: draftMutate, isError: false }),
 }));
-vi.mock("@/lib/hooks/skills", () => ({ useCreateSkill: () => ({ mutate: vi.fn(), isPending: false, isError: false }) }));
+vi.mock("@/lib/hooks/skills", () => ({
+  useCreateSkill: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useLinkSkillToAgent: () => ({ mutateAsync: vi.fn() }),
+}));
+vi.mock("@/lib/hooks/agents", () => ({ useAgents: () => ({ data: [] }) }));
 vi.mock("@/components/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -72,10 +76,12 @@ describe("ConventionsView", () => {
     expect(screen.getByText("Use singletons")).toBeInTheDocument();
   });
 
-  it("Create skill is disabled while nothing is accepted", () => {
+  it("Create skill appears only after at least one candidate is accepted", () => {
     candidates = [mk("b", "pending", "Use singletons")];
     renderView();
-    expect(screen.getByRole("button", { name: "Create skill" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Create skill" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    expect(updateMutate).toHaveBeenCalledWith({ id: "b", patch: { status: "accepted" } });
   });
 
   it("Create skill opens the draft modal for the accepted conventions", () => {
@@ -89,15 +95,16 @@ describe("ConventionsView", () => {
 
   it("re-scan triggers the extractor", () => {
     renderView();
-    fireEvent.click(screen.getByRole("button", { name: "Re-scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "ReScan" }));
     expect(extractMutate).toHaveBeenCalled();
   });
 
-  it("shows the empty state with a Run extraction CTA when nothing was scanned", () => {
+  it("offers Run Scan (not ReScan) when nothing was scanned yet", () => {
     candidates = [];
     loaded = { last_scan_at: null };
     renderView();
-    fireEvent.click(screen.getByRole("button", { name: "Run extraction" }));
+    expect(screen.queryByRole("button", { name: "ReScan" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Run Scan" }));
     expect(extractMutate).toHaveBeenCalled();
   });
 

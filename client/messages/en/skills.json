@@ -15,6 +15,7 @@
   },
   "card": {
     "enabledLabel": "Enable {name}",
+    "delete": "Delete {name}",
     "noDescription": "No description",
     "agents": "{count, plural, one {# agent} other {# agents}}",
     "pull": "{value}% pull",
@@ -88,7 +89,7 @@
       "preview": "Preview",
       "evals": "Evals",
       "stats": "Stats",
-      "versions": "Versions"
+      "versions": "Versioning"
     },
     "select": "Select a skill to see its details.",
     "runOnEvals": "Run on evals",
@@ -150,6 +151,7 @@
       "nameLabel": "Skill name",
       "nameHint": "Optional — derived from the first heading if blank.",
       "fileLabel": "File (.md or .zip)",
+      "descriptionHint": "Read from the file's frontmatter — editable before you import.",
       "badType": "Only .md or .zip files can be imported.",
       "import": "Import skill"
     },

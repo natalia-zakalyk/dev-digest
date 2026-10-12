@@ -69,7 +69,7 @@ describe("SkillDetail", () => {
   it.each([
     ["Config", "Edit"],
     ["Stats", "Security Reviewer"],
-    ["Versions", "Tightened scope rule"],
+    ["Versioning", "Tightened scope rule"],
   ])("clicking %s renders that tab's real content", (label, text) => {
     renderDetail();
     fireEvent.click(screen.getByRole("button", { name: label }));

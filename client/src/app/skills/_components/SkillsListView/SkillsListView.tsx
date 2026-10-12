@@ -7,7 +7,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, EmptyState, ErrorState, Skeleton, Icon } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
-import { useSkills, useSkillSummaries, useUpdateSkill } from "@/lib/hooks/skills";
+import { useSkills, useSkillSummaries, useUpdateSkill, useDeleteSkill } from "@/lib/hooks/skills";
 import { SkillCard } from "./_components/SkillCard";
 import { SkillDetail } from "./_components/SkillDetail";
 import { SkillEditorModal } from "./_components/SkillEditorModal";
@@ -16,13 +16,14 @@ import type { SkillsOverlay } from "./constants";
 import { filterSkills } from "./helpers";
 import { s } from "./styles";
 
-export function SkillsListView() {
+export function SkillsListView({ initialId = null }: { initialId?: string | null }) {
   const t = useTranslations("skills");
   const { data: skills, isLoading, isError, refetch } = useSkills();
   const summaries = useSkillSummaries();
   const update = useUpdateSkill();
+  const del = useDeleteSkill();
   const [search, setSearch] = React.useState("");
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(initialId);
   const [overlay, setOverlay] = React.useState<SkillsOverlay>({ kind: "none" });
   const close = React.useCallback(() => setOverlay({ kind: "none" }), []);
 
@@ -36,7 +37,12 @@ export function SkillsListView() {
   const selected = all.find((sk) => sk.id === selectedId) ?? all[0];
   const editing = overlay.kind === "edit" ? all.find((sk) => sk.id === overlay.id) : undefined;
 
-  const onDeleted = () => setSelectedId(null);
+  // Reflect the open skill in the URL (/skills/:id) without remounting the page.
+  const open = React.useCallback((id: string | null) => {
+    setSelectedId(id);
+    window.history.replaceState(null, "", id ? `/skills/${id}` : "/skills");
+  }, []);
+  const onDeleted = () => open(null);
 
   return (
     <AppShell crumb={[{ label: t("page.crumbLab") }, { label: t("page.crumbSkills") }]}>
@@ -87,7 +93,9 @@ export function SkillsListView() {
                   skill={sk}
                   summary={summaryById.get(sk.id)}
                   selected={sk.id === selected?.id}
-                  onOpen={() => setSelectedId(sk.id)}
+                  onOpen={() => open(sk.id)}
+                  onDelete={() => del.mutate(sk.id, { onSuccess: () => sk.id === selected?.id && onDeleted() })}
+                  deleting={del.isPending && del.variables === sk.id}
                   onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
                 />
               ))}
@@ -115,7 +123,7 @@ export function SkillsListView() {
         <AddSkillModal
           onClose={close}
           onSaved={(id) => {
-            setSelectedId(id);
+            open(id);
             close();
           }}
         />

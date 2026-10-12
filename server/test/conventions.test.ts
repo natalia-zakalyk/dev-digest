@@ -51,7 +51,7 @@ describe('buildSkillDraft / numberLines', () => {
       { rule: 'Use async/await', category: 'async', evidencePath: 'src/a.ts', evidenceLineStart: 2, evidenceLineEnd: 4, evidenceSnippet: 'x' },
       { rule: 'Redis via singleton', category: null, evidencePath: null, evidenceLineStart: null, evidenceLineEnd: null, evidenceSnippet: null },
     ]);
-    expect(d).toMatchObject({ name: 'payments-api-conventions', type: 'convention' });
+    expect(d).toMatchObject({ name: 'repo-conventions', type: 'convention' });
     expect(d.body).toContain('## use-async-await');
     expect(d.body).toContain('`src/a.ts:2-4`');
     expect(d.body).toContain('## redis-via-singleton');
