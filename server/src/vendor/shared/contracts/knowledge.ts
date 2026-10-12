@@ -115,7 +115,7 @@ export type MemoryItem = z.infer<typeof MemoryItem>;
 export const SkillType = z.enum(['rubric', 'convention', 'security', 'custom']);
 export type SkillType = z.infer<typeof SkillType>;
 
-export const SkillSource = z.enum(['manual', 'imported_url', 'imported_file', 'extracted', 'community']);
+export const SkillSource = z.enum(['manual', 'imported_file', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
 export const Skill = z.object({
@@ -170,7 +170,8 @@ export const CreateSkillBody = z.object({
   body: z.string().trim().min(1).max(256 * 1024),
   source: SkillSource.optional(),
   enabled: z.boolean().optional(),
-  change_note: z.string().trim().max(200).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
+  change_note: z.string().trim().max(80).optional(),
 });
 export type CreateSkillBody = z.infer<typeof CreateSkillBody>;
 
@@ -182,7 +183,7 @@ export const UpdateSkillBody = z.object({
   body: z.string().trim().min(1).max(256 * 1024).optional(),
   enabled: z.boolean().optional(),
   /** Stored on the new version snapshot when the body changes. */
-  change_note: z.string().trim().max(200).optional(),
+  change_note: z.string().trim().max(80).optional(),
 });
 export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
 
