@@ -1,8 +1,8 @@
 /* RunTraceDrawer — A5 Run Trace + Live Log drawer (720px). Ported from
    screen_trace.jsx. Tabs: Trace (Configuration / Stats / Prompt assembly /
    Tool calls / Raw output) and Live log (SSE via useRunEvents → LiveLogStream,
-   which has client-side Filter-input search). Default export so the PR-detail
-   page (A2) can mount it from the run-status area. */
+   which has client-side Filter-input search). Mounted by the PR-detail view
+   when `?trace=<runId>` is set. */
 "use client";
 
 import React from "react";
@@ -23,6 +23,9 @@ export interface RunTraceDrawerProps {
   prNumber?: number | null;
   /** Persisted findings of this run (shown in the Findings section). */
   findings?: FindingRecord[];
+  /** owner/repo + PR head sha: finding locations link to GitHub when both are set. */
+  repoFullName?: string | null;
+  headSha?: string | null;
   /** When true, the drawer defaults to the live log and streams SSE. */
   running?: boolean;
   onClose: () => void;
@@ -33,11 +36,13 @@ export interface RunTraceDrawerProps {
  * over SSE (useRunEvents). The Trace tab loads the persisted single-document
  * RunTrace (useRunTrace) once the run completes (or for historical runs).
  */
-export default function RunTraceDrawer({
+export function RunTraceDrawer({
   runId,
   agentName,
   prNumber,
   findings = [],
+  repoFullName,
+  headSha,
   running = false,
   onClose,
 }: RunTraceDrawerProps) {
@@ -94,7 +99,7 @@ export default function RunTraceDrawer({
               {stillRunning ? t("drawer.tracePending") : t("drawer.loadingTrace")}
             </div>
           ) : trace ? (
-            <TraceBody trace={trace} findings={findings} />
+            <TraceBody trace={trace} findings={findings} repoFullName={repoFullName} headSha={headSha} />
           ) : (
             <div style={s.emptyNote}>{t("drawer.noTrace")}</div>
           )

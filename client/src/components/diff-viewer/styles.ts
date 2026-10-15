@@ -11,12 +11,26 @@ export const s = {
     overflow: "hidden",
     background: "var(--bg-elevated)",
   } satisfies CSSProperties,
+  /** A native <button> (keyboard + aria-expanded); reset to look like a row. */
   fileHeader: {
     display: "flex",
     alignItems: "center",
     gap: 10,
+    width: "100%",
     padding: "10px 12px",
+    border: "none",
+    background: "transparent",
+    color: "inherit",
+    font: "inherit",
+    textAlign: "left",
     cursor: "pointer",
+  } satisfies CSSProperties,
+  commentCount: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 12,
+    color: "var(--text-muted)",
   } satisfies CSSProperties,
   fileIcon: { color: "var(--text-muted)" } satisfies CSSProperties,
   filePath: {

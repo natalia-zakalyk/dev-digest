@@ -31,8 +31,12 @@ import type {
   AuthWorkspace,
   SecretsProvider,
   SecretKey,
+  UrlFetcher,
+  UrlFetchResult,
 } from '@devdigest/shared';
 import { parseUnifiedDiff } from './git/diff-parser.js';
+import { ValidationError } from '../platform/errors.js';
+import { validateSkillUrl } from './urlfetch/validate.js';
 
 /**
  * Deterministic MOCK adapters for tests/dev — NO real network. Each mirrors the
@@ -326,5 +330,27 @@ export class MockSecretsProvider implements SecretsProvider {
   constructor(private secrets: Partial<Record<string, string>> = {}) {}
   async get(key: SecretKey): Promise<string | undefined> {
     return this.secrets[key as string];
+  }
+}
+
+// ---------- Mock UrlFetcher ----------
+/**
+ * Serves canned files keyed by the canonical (validated, rewritten) URL. It runs the real
+ * `validateSkillUrl`, so tests exercise the host allowlist without any network.
+ */
+export class MockUrlFetcher implements UrlFetcher {
+  public calls: string[] = [];
+
+  constructor(private files: Record<string, string | { bytes: Uint8Array; contentType?: string }> = {}) {}
+
+  async fetch(input: string): Promise<UrlFetchResult> {
+    const url = validateSkillUrl(input);
+    this.calls.push(url.href);
+    const hit = this.files[url.href];
+    if (hit === undefined) throw new ValidationError('Skill URL could not be fetched (HTTP 404)');
+    if (typeof hit === 'string') {
+      return { bytes: new TextEncoder().encode(hit), contentType: 'text/plain', finalUrl: url.href };
+    }
+    return { bytes: hit.bytes, contentType: hit.contentType ?? 'application/zip', finalUrl: url.href };
   }
 }

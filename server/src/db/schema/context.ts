@@ -8,7 +8,7 @@ import {
   timestamp,
   vector,
   index,
-  uniqueIndex,
+  unique,
 } from 'drizzle-orm/pg-core';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -77,13 +77,10 @@ export const symbols = pgTable(
   (t) => ({
     lookupIdx: index('symbols_repo_path_idx').on(t.repoId, t.path),
     nameIdx: index('symbols_repo_name_idx').on(t.repoId, t.name),
-    uq: uniqueIndex('symbols_repo_path_name_kind_line_uq').on(
-      t.repoId,
-      t.path,
-      t.name,
-      t.kind,
-      t.line,
-    ),
+    // NULLS NOT DISTINCT so legacy rows with a NULL line can't duplicate.
+    uq: unique('symbols_repo_path_name_kind_line_uq')
+      .on(t.repoId, t.path, t.name, t.kind, t.line)
+      .nullsNotDistinct(),
   }),
 );
 

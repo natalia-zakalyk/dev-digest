@@ -20,7 +20,7 @@ import {
 import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
 import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
-import { githubBlobUrl } from "../../../../../../../lib/github-urls";
+import { githubBlobUrl } from "@/lib/github-urls";
 import { s } from "./styles";
 
 export function FindingCard({
@@ -42,6 +42,7 @@ export function FindingCard({
 }) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
+  const bodyId = React.useId();
   const sevColor = SEV_COLOR[f.severity] ?? SEV_COLOR_FALLBACK;
   const fileHref =
     repoFullName && headSha
@@ -53,29 +54,37 @@ export function FindingCard({
 
   return (
     <div data-finding-id={f.id} style={s.card(!!focused, sevColor, muted)}>
-      <div onClick={() => setExpanded((e) => !e)} style={s.header}>
-        <div style={s.badgeWrap}>
-          <SeverityBadge severity={f.severity as Severity} compact />
-        </div>
-        <div style={s.headerMain}>
-          <div style={s.titleRow}>
+      <div style={s.header}>
+        {/* Disclosure toggle is a real button; the file link stays outside it
+            (no interactive content nested inside a button). */}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={bodyId}
+          onClick={() => setExpanded((e) => !e)}
+          style={s.toggle}
+        >
+          <span style={s.badgeWrap}>
+            <SeverityBadge severity={f.severity as Severity} compact />
+          </span>
+          <span style={s.titleRow}>
             <span style={s.title(muted, dismissed)}>{f.title}</span>
             <CategoryTag category={f.category as Category} />
             {accepted && <span style={s.acceptedTag}>{t("finding.accepted")}</span>}
             {dismissed && <span style={s.dismissedTag}>{t("finding.dismissed")}</span>}
-          </div>
-          <div style={s.metaRow}>
-            <MonoLink href={fileHref}>
-              {f.file}:{lineLabel(f)}
-            </MonoLink>
-            <ConfidenceNum value={f.confidence} />
-          </div>
+          </span>
+          <Icon.ChevronDown size={16} style={s.chevron(expanded)} />
+        </button>
+        <div style={s.metaRow}>
+          <MonoLink href={fileHref}>
+            {f.file}:{lineLabel(f)}
+          </MonoLink>
+          <ConfidenceNum value={f.confidence} />
         </div>
-        <Icon.ChevronDown size={16} style={s.chevron(expanded)} />
       </div>
 
       {expanded && (
-        <div style={s.body}>
+        <div id={bodyId} style={s.body}>
           <div style={s.prose}>
             <Markdown>{f.rationale}</Markdown>
           </div>

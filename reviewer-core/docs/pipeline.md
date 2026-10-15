@@ -36,7 +36,9 @@ Entry point: `reviewPullRequest(input)` in `src/review/run.ts:128`.
 | `'auto'` (default) | map-reduce iff total `additions + deletions` > threshold **and** > 1 file |
 
 Threshold = `input.mapThresholdLines ?? DEFAULT_MAP_THRESHOLD_LINES` (400). Retry budget passed
-to the provider = `input.maxRetries ?? DEFAULT_REVIEW_MAX_RETRIES` (2).
+to the provider = `input.maxRetries ?? DEFAULT_REVIEW_MAX_RETRIES` (2). Output-token cap per
+call = `input.maxTokens ?? DEFAULT_REVIEW_MAX_TOKENS` (16 000) — always sent, so a huge diff can't
+produce unbounded output (the SDK `timeoutMs` does not bound a run).
 
 **Chunks** (`run.ts:149-152`): single-pass → one chunk labelled `'all files'` with `diff.raw`;
 map-reduce → one chunk per file, `label = file.path`, text from `sliceDiff`.
@@ -45,7 +47,7 @@ map-reduce → one chunk per file, `label = file.path`, text from `sliceDiff`.
 1. `input.checkCancelled?.()` — caller-supplied; if it throws, the run aborts before the LLM call.
 2. Emit a `tool` event (`map: reviewing <file>` or `Reviewing all files in one pass`).
 3. `assemblePrompt({...promptParts, diff: chunk.diffText})`.
-4. `input.llm.completeStructured<Review>({ model, schema: ReviewSchema, schemaName: 'Review', messages, maxRetries, sessionId? })`.
+4. `input.llm.completeStructured<Review>({ model, schema: ReviewSchema, schemaName: 'Review', messages, maxRetries, maxTokens, sessionId? })`.
    `sessionId` is forwarded on every call when set (OpenRouter session grouping).
 5. Accumulate tokens/cost, call `onUsage`, push raw + partial, emit a `result` event.
 
@@ -59,10 +61,12 @@ The server bridges these onto SSE via `runLog.event` (`server/src/modules/review
 
 ## 2. Map-reduce helpers — `src/review/reduce.ts`
 
-- `sliceDiff(diff, path)` (`reduce.ts:58`): scans `diff.raw` and captures every line from a
-  `diff --git` header containing `b/<path>` or ` <path>` up to the next header. If nothing
-  matches but the file is in `diff.files`, returns a header-only synthesized stub; if the file is
-  unknown, returns the whole `diff.raw`.
+- `sliceDiff(diff, path)` (`reduce.ts`): splits `diff.raw` into `diff --git` blocks and keeps a
+  block only when its resolved path **equals** `path` (so `foo.ts` never pulls in `foo.tsx` or
+  `sub/foo.ts`). Block path = the `+++ b/…` path; for a deletion (`+++ /dev/null`) the `--- a/…`
+  path; else `rename to`; else the header (`diff --git a/X b/Y`, symmetric split when X === Y).
+  A rename matches its new path only. If nothing matches but the file is in `diff.files`, returns a
+  header-only synthesized stub; if the file is unknown, returns the whole `diff.raw`.
 - `reduceReviews(partials)` (`reduce.ts:43`): one partial → returned as-is. Otherwise: concat
   findings, **worst verdict wins** (`request_changes` > `comment` > `approve`), mean score
   (rounded), summaries joined with a space. The mean score is discarded later anyway (see §6).
@@ -90,8 +94,10 @@ The server bridges these onto SSE via `runLog.event` (`server/src/modules/review
 | 8 | `## Diff to review` | `diff` (always present, always last) | yes, `diff` |
 
 - `wrapUntrusted(label, content)` (`prompt.ts:30`) produces
-  `<untrusted source="label">\n…\n</untrusted>` and rewrites any literal `</untrusted>` in the
-  content to `<\/untrusted>` so the content cannot close the fence.
+  `<untrusted source="label">\n…\n</untrusted>` and defangs every opening/closing `untrusted` tag
+  in the content — any case, whitespace or attributes (`</UNTRUSTED>`, `</untrusted >`,
+  `< / untrusted>`, `<untrusted foo>`) — by rewriting the leading `<` to `<\`, so the content can
+  neither close nor forge the fence.
 - `assembly` (shared `PromptAssembly`) records `system`, `skills`, `memory`, `specs`, `callers`,
   `repo_map`, `pr_description` (null when absent) and the full `user` string, for the run trace.
 - In the starter the server only fills `task`, `prDescription`, `callers`, `repoMap`
@@ -112,12 +118,15 @@ The engine only calls `input.llm.completeStructured` (interface in
   `session_id` (when given) and `usage: { include: true }`.
 - **Parse-with-repair loop**: up to `maxRetries + 1` attempts. On a schema/JSON failure, appends
   the raw output as an `assistant` message plus the `repromptMessage` as a `user` message and
-  retries. Exhausted → throws `OpenRouter structured output failed schema validation for <name>`.
+  retries. Exhausted → throws `OpenRouter structured output failed schema validation for <name>: <last
+  error>` (last JSON/Zod error, newlines flattened, truncated to 500 chars).
 - HTTP 200 with no `choices` → throws `OpenRouter returned no choices for <name>[: error]`.
 - Tokens accumulate across attempts. **Cost**: sum of `usage.cost` from OpenRouter if any attempt
   returned it; else `estimateCost(model, in, out)` (injected — the server passes its PriceBook);
   else `null`.
-- `listModels()` fetches `/models` raw, converts per-token prices to per-1M, treats negative/NaN
+- `listModels()` fetches `/models` raw and validates it with a Zod schema (`data[]` of
+  `{id, name?, context_length?, pricing?{prompt?, completion?}}`, unknown fields pass through); a
+  mismatch throws `OpenRouter /models returned an unexpected shape: <issues>`. It then converts per-token prices to per-1M, treats negative/NaN
   prices as unknown (`pricing: null`), sorts cheapest completion first. `complete` / `embed` throw.
 
 ## 5. Structured output — `src/llm/structured.ts`
@@ -137,16 +146,25 @@ The engine only calls `input.llm.completeStructured` (interface in
 flowchart LR
   F["finding"] --> A{"file in diff.files?"}
   A -- no --> D1["drop: file '…' not present in diff"]
-  A -- yes --> B{"kind ∈ secret_leak, lethal_trifecta,<br/>phantom, hook?"}
+  A -- yes --> R{"end < start or<br/>span > 500 lines?"}
+  R -- yes --> D3["drop: invalid / too-wide range"]
+  R -- no --> B{"source = 'scanner' and kind ∈ secret_leak,<br/>lethal_trifecta, phantom, hook?"}
   B -- yes --> K["keep (file presence is enough)"]
-  B -- no --> C{"any line in [min,max] of<br/>start/end ∈ new-side lines?"}
+  B -- no --> C{"[start,end] intersects a<br/>merged new-side hunk range?"}
   C -- yes --> K
   C -- no --> D2["drop: lines s-e do not intersect any diff hunk in '…'"]
 ```
 
-- `buildLineIndex(diff)` (`grounding.ts:24`): per file, union of each hunk's `newLineNumbers`;
-  if a hunk has none, falls back to `newStart … newStart + max(newLines,1) - 1`.
-- Ranges are order-insensitive (`min`/`max`). Matching is on exact `file === path`.
+- `groundFindings(findings, diff, { source = 'llm' })`. Range index (internal `buildRangeIndex`):
+  per file, sorted + merged inclusive `[lo, hi]` runs of each hunk's `newLineNumbers`; if a hunk
+  has none, falls back to `newStart … newStart + max(newLines,1) - 1`. Intersection is a binary
+  search — O(log hunks), independent of the cited span, so `end_line: 1_000_000` costs nothing.
+- Reversed ranges (`end_line < start_line`) are **dropped**, not swapped; spans wider than
+  `MAX_FINDING_SPAN_LINES` (500, inclusive) are dropped. Each has its own reason text;
+  non-intersection keeps `do not intersect`. Matching is on exact `file === path`.
+- The full-file `kind` exemption applies **only** to `source: 'scanner'` (deterministic
+  full-file scanners). `reviewPullRequest` grounds LLM output with the default `'llm'`, so a model
+  cannot ground an arbitrary line by labelling it `secret_leak`.
 - `groundingSummary` → `"<kept>/<kept+dropped> passed"` (e.g. `1/2 passed`).
 - After grounding, `run.ts:214` replaces `findings` with the kept set and `score` with
   `scoreFromFindings(kept)` = `clamp(100 − Σ penalty, 0, 100)`, penalties CRITICAL 35 / WARNING 12 /

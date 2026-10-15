@@ -11,7 +11,9 @@
     "light": "light"
   },
   "removeRepo": {
-    "confirm": "Remove {name} from DevDigest?\n\nThis only removes it from DevDigest (and its imported PRs). Nothing is deleted on GitHub, and your local clone on disk is left untouched.",
+    "title": "Remove {name} from DevDigest?",
+    "body": "This only removes it from DevDigest (and its imported PRs). Nothing is deleted on GitHub, and your local clone on disk is left untouched.",
+    "confirm": "Remove",
     "fallbackName": "this repository"
   },
   "nav": {
@@ -40,6 +42,7 @@
     "reply": "Reply",
     "viewOnGitHub": "View on GitHub",
     "postedToGitHub": "Posts to GitHub immediately",
-    "outdatedTitle": "{count} comment(s) on older revisions"
+    "outdatedTitle": "{count} comment(s) on older revisions",
+    "addComment": "Add a comment on this line"
   }
 }

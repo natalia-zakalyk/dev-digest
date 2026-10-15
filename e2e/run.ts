@@ -22,6 +22,7 @@ import { readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
+  parseFlow,
   resolveArgs,
   stdoutContains,
   summarize,
@@ -56,7 +57,9 @@ function loadFlows(): { file: string; flow: Flow }[] {
     .sort()
     .map((file) => ({
       file,
-      flow: JSON.parse(readFileSync(join(SPECS_DIR, file), "utf8")) as Flow,
+      // Validated, not cast: a malformed flow (no steps, mistyped key) must fail
+      // loudly instead of silently passing as an empty/partial flow.
+      flow: parseFlow(file, JSON.parse(readFileSync(join(SPECS_DIR, file), "utf8"))),
     }));
 }
 
@@ -78,7 +81,7 @@ async function runFlow(file: string, flow: Flow): Promise<FlowResult> {
       steps.push({ label, ok: true });
       console.log(`   ✓ ${label}`);
     } catch (e) {
-      const msg = (e as Error).message.split("\n")[0];
+      const msg = (e as Error).message.split("\n")[0] ?? String(e);
       steps.push({ label, ok: false, detail: msg });
       console.log(`   ✗ ${label} — ${msg}`);
       // Best-effort failure screenshot for the artifact upload.

@@ -36,3 +36,12 @@ export function parsePatch(patch: string | null | undefined): Line[] {
   }
   return out;
 }
+
+/**
+ * Stable React key for a parsed line. Line numbers are unique per kind within a
+ * file's patch; hunk headers carry no numbers, so their text identifies them.
+ */
+export function renderKeyFor(ln: Line): string {
+  if (ln.kind === "hunk") return `hunk:${ln.text}`;
+  return `${ln.kind}:${ln.oldNo ?? ""}:${ln.newNo ?? ""}`;
+}

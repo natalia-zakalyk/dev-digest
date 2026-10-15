@@ -10,8 +10,11 @@ points at the file that implements it. For the API map and env-var table see
 `pnpm dev` runs `tsx watch src/server.ts`.
 
 - `src/server.ts` — `loadConfig()` → `buildApp({ config })` → `app.listen({ port: config.apiPort,
-  host: '0.0.0.0' })`. SIGTERM/SIGINT call `app.close()` once (guarded by a `closing` flag),
-  which runs the `onClose` hooks (closes the postgres pool).
+  host: config.host })` — **loopback `127.0.0.1` by default** (the API has no auth; set
+  `API_HOST=0.0.0.0` only inside a container). SIGTERM/SIGINT call `app.close()` once (guarded by a
+  `closing` flag) with a 20 s force-exit backstop. Shutdown order: end open SSE streams
+  (`runBus.shutdown()`) → `onClose` waits for in-flight jobs (`jobs.drain`, bounded) → close the
+  postgres pool.
 - `src/app.ts` `buildApp(opts)` — exported so tests can `app.inject()` without a port. Accepts
   optional `config`, `db` and `overrides` (DI mocks).
 
@@ -61,6 +64,7 @@ Per-route rate-limit overrides live on the routes: `POST /pulls/:id/review` 10/m
 |---|---|
 | `databaseUrl` | `DATABASE_URL`, default `postgres://devdigest:devdigest@localhost:5432/devdigest` |
 | `apiPort` / `webPort` | `API_PORT` 3001 / `WEB_PORT` 3000 (coerced ints) |
+| `host` | `API_HOST`, default `127.0.0.1` (bind address) |
 | `webOrigin` | `http://localhost:${WEB_PORT}` (CORS) |
 | `cloneDir` | `DEVDIGEST_CLONE_DIR` resolved to absolute, else `~/.devdigest/workspace` |
 | `secretsPath` | always `~/.devdigest/secrets.json` |
@@ -87,8 +91,11 @@ One `Container` per app instance; services receive it and resolve ports from it.
   `embeddingsEnabled` (so zero OpenAI calls by default). Missing key → `ConfigError` (HTTP 500,
   `config_error`).
 - `invalidateSecretCaches()` drops cached LLM/GitHub/embedder clients after a key changes.
+- `llmWithKey(provider, key)` / `githubWithToken(token)` build an **uncached** client from a
+  candidate key — used by `POST /settings/test-connection`, which tests first and persists only on
+  success.
 - **`ContainerOverrides`** (`container.ts:40-54`) lets tests inject `secrets`, `auth`, `github`,
-  `git`, `codeIndex`, `embedder`, `llm` (per provider), `repoIntel`, `depgraph`, `tokenizer`.
+  `git`, `codeIndex`, `embedder`, `llm` (per provider), `repoIntel`, `depgraph`, `tokenizer`, `runBus`.
   An override always wins over construction.
 
 ## 4. Adapters (ports) and mocks
@@ -110,7 +117,7 @@ implementations are in `src/adapters/*` (barrel: `src/adapters/index.ts`):
 Repo-intel-only adapters (interfaces declared next to the impl, overridable via the container):
 `depgraph/index.ts` (dependency-cruiser), `tokenizer/index.ts` (js-tiktoken, falls back to
 `chars/4`), `astgrep/index.ts` (tree-sitter symbol extraction). `llm/pricing.ts` is the static
-cost table. Rule (CLAUDE.md): a new external dependency = a new adapter behind DI + a mock.
+cost table. Rule (AGENTS.md): a new external dependency = a new adapter behind DI + a mock.
 
 ## 5. Module-plugin pattern
 
@@ -136,24 +143,35 @@ flowchart LR
 - Repositories own SQL (`modules/reviews/repository.ts` composes `repository/{review,run,pull}.repo.ts`).
   Cross-module repositories (`agentsRepo`, `reviewRepo`) are exposed on the container instead of
   importing another module's folder.
-- Not every module has all three layers: `pulls`, `polling`, `workspace`, `settings` query in the
-  routes file / helpers directly.
+- Not every module has all three layers: `workspace` and `settings` still query in the routes file /
+  helpers directly. `pulls` has `service.ts` + `repository.ts`; `syncPulls()` (one multi-row upsert
+  in a transaction) is shared by the pulls and polling routes.
+- **Onion rings & enforcement.** The layering above is the onion: `helpers.ts`/`constants.ts`/`domain/*`
+  (pure) ← `service.ts`/`*-executor.ts`/`ports.ts` ← `repository.ts`/`*.repo.ts`/`adapters/*` and
+  `routes.ts`; `app.ts` + `platform/container.ts` are the composition root. `pnpm lint:arch`
+  (dependency-cruiser, `server/.dependency-cruiser.cjs`) fails on new violations; the pre-existing ones
+  (the modules above that query in routes, row types in helpers/services, the container cycles) are listed
+  in `.dependency-cruiser-known-violations.json`. Rules and how to fix a violation:
+  [onion-architecture skill](../../.claude/skills/onion-architecture/SKILL.md).
 
 ## 6. Schema-first validation and shared contracts
 
 - Routes declare `schema: { params, body }` with zod; `IdParams = { id: uuid }`
   (`modules/_shared/schemas.ts`) turns bad ids into 422 instead of a DB 500.
-- Error handler (`app.ts:116-164`) returns `{ error: { code, message, details? } }`
+- Error handler (`app.ts`) returns `{ error: { code, message, details? } }`
   (`ApiErrorBody` in `contracts/platform.ts`):
-  - zod request validation → **422** `validation_error`;
-  - response serialization failure → **500** `internal_error` (raw object never leaked);
-  - any `ZodError` thrown in a handler/service (matched by `instanceof` **or** shape, because two
-    zod copies can coexist) → **422**;
-  - `AppError` → its `statusCode` (`platform/errors.ts`: `NotFoundError` 404, `ValidationError`
-    422, `ExternalServiceError` 502, `ConfigError` 500);
-  - anything else → `statusCode ?? 500`.
-- Exception: `POST /pulls/:id/review` parses its tolerant body manually with `RunRequest.parse`
-  (`reviews/routes.ts:32`) — a bad body still yields 422 via the ZodError branch.
+  - zod **request** validation (route schema) → **422** `validation_error`;
+  - a `ZodError` from server-side data (DB rows, stored traces) → **500** `internal_error` — the
+    client is not blamed for bad server data;
+  - `AppError` → its `statusCode` and its own message (`platform/errors.ts`: `NotFoundError` 404,
+    `ValidationError` 422, `ExternalServiceError` 502, `ConfigError` 500);
+  - other 4xx get a matching code (e.g. 429 → `rate_limited`, malformed JSON → `bad_request`);
+  - anything else → **500** with a generic message; the detail is only logged;
+  - unknown routes → `setNotFoundHandler` → 404 `not_found` in the same envelope.
+- `POST /pulls/:id/review` validates its tolerant body in the route schema
+  (`RunRequest.nullish()` → `{}`), so an empty body is still accepted.
+- Pino `redact` removes authorization headers, tokens and API keys from logs; `platform/redact.ts`
+  strips credentials from stored job errors.
 - **`@devdigest/shared` = `src/vendor/shared`** (barrel `index.ts`: `contracts/*` + `adapters.ts`).
   Resolved by tsconfig path alias, not a package: `server/tsconfig.json` and
   `reviewer-core/tsconfig.json` both point at **this** copy (canonical). `client/src/vendor/shared`
@@ -166,17 +184,27 @@ flowchart LR
 `src/adapters/secrets/local.ts`: reads `~/.devdigest/secrets.json` once (cached), falls back to
 `process.env`; stored value wins over env. `GITHUB_TOKEN` falls back to `GITHUB_PAT`. `set()`
 writes the file with mode `0600`. It is the only reader of key env vars; nothing secret goes into
-`AppConfig`, the DB or logs. Keys entered in Settings go through `set()` then
-`container.invalidateSecretCaches()`.
+`AppConfig`, the DB or logs. Keys entered in Settings are tested first (`test-connection`) and only
+then go through `set()` + `container.invalidateSecretCaches()`. Git clones never embed the token in
+the URL: `git/simple-git.ts` passes it as an `http.extraheader` scoped to `https://github.com/` and
+resets `origin` on re-fetch. Repo URLs must match `^https://github.com/` / `git@github.com:`; the
+clone URL is always rebuilt as `https://github.com/<owner>/<name>.git`, and clone paths must stay
+inside `cloneDir`.
 
 ## 8. DB layer
 
-- `src/db/client.ts` — `createDb(url, {max=10})` → Drizzle over `postgres-js`, plus `close()`.
+- `src/db/client.ts` — `createDb(url, opts)` → Drizzle over `postgres-js`, plus `close()`. Pool
+  defaults: `max` 10, idle 30 s, connect 10 s, `statement_timeout` 60 s. `DbExecutor` = the db or an
+  open transaction: repositories accept it and expose `transaction(fn)`, so multi-step writes
+  (run completion, PR files/commits, agent skills, repo-intel replaces, agent version bump) are
+  atomic without services importing Drizzle.
 - `src/db/schema.ts` — barrel over `src/db/schema/*` (`core, repos, pulls, reviews, skills,
   agents, knowledge, context, eval, ci, runs, ops, repo-intel`) and the `schema` object used for
   typing. It already contains **every** table later lessons use; most sit empty in the starter.
   Tenancy: domain tables carry `workspace_id`.
-- Migrations: `drizzle.config.ts` → `src/db/migrations` (0000–0010). `pnpm db:generate` after a
+- Migrations: `drizzle.config.ts` → `src/db/migrations` (0000–0011; 0011 adds hot-path indexes,
+  CHECKs on statuses/severity, FKs `reviews.run_id` (cascade) / `agent_id` (set null) and
+  `NULLS NOT DISTINCT` uniques). `pnpm db:check` (drizzle-kit check) runs in CI. `pnpm db:generate` after a
   schema change, `pnpm db:migrate` (`src/db/migrate.ts`: `CREATE EXTENSION IF NOT EXISTS vector`,
   then drizzle `migrate`). **Not run on boot.** Never edit an applied migration.
 - `pnpm db:seed` (`src/db/seed.ts`) — idempotent: workspace `default`, user `you@local` (required by

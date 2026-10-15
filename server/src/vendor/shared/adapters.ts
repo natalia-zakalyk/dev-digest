@@ -140,6 +140,19 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+// ---------- UrlFetcher (skill import by URL; GitHub hosts only) ----------
+export interface UrlFetchResult {
+  bytes: Uint8Array;
+  contentType: string | null;
+  /** The URL the bytes came from, after validated redirects. */
+  finalUrl: string;
+}
+
+export interface UrlFetcher {
+  /** Fetch a small text/zip file over https from an allow-listed host. Throws a ValidationError-style error otherwise. */
+  fetch(url: string): Promise<UrlFetchResult>;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;

@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { Db } from '../../../db/client.js';
+import type { DbExecutor as Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { Intent } from '@devdigest/shared';
 import type { PullRow } from '../../../db/rows.js';

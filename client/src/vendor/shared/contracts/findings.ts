@@ -50,8 +50,10 @@ export const Finding = z.object({
   category: FindingCategory,
   title: z.string(),
   file: z.string(),
-  start_line: z.number().int(),
-  end_line: z.number().int(),
+  // Bounded so a hostile/hallucinated model reply can't stall grounding with a
+  // multi-billion-line range; 0 is allowed for whole-file findings.
+  start_line: z.number().int().min(0).max(1_000_000),
+  end_line: z.number().int().min(0).max(1_000_000),
   rationale: z.string(), // markdown
   suggestion: z.string().nullish(), // markdown
   confidence: z.number().min(0).max(1),

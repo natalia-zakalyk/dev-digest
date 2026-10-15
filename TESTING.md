@@ -74,16 +74,23 @@ npm i -g agent-browser && agent-browser install
 cd e2e && npm install && npm test
 ```
 
+## Before opening a PR
+
+`/pr-self-review` (Claude Code skill) is the local gate before CI: an LLM review of the branch diff through
+the project skills plus deterministic checks; the pre-push hook blocks the push on any CRITICAL or a stale
+review (see [README → Before opening a PR](README.md#before-opening-a-pr--self-review-gate)). With `--verify` it
+also runs the per-module `typecheck` + unit tests above. The skill's own scripts are tested offline:
+
+```sh
+node --test .claude/skills/pr-self-review/scripts/pr-self-review.test.mjs
+```
+
 ## Conventions
 
 - **Integration tests end in `*.it.test.ts`.** The unit lane excludes that glob
   (`vitest run --exclude '**/*.it.test.ts'`); the integration lane selects only
   it (`vitest run .it.test`). A DB-backed test that imports `test/helpers/pg.ts`
   must use the `.it.test.ts` suffix.
-- **`server/package.json` is `skip-worktree`** (a local variant diverges from the
-  committed file). CI therefore invokes the split with
-  `pnpm exec vitest run …` rather than relying on committed `test:unit` /
-  `test:integration` scripts.
 - **Hermetic by default.** Reach for `src/adapters/mocks.ts` (MockLLMProvider,
   MockGitClient) rather than real network/keys.
 - **E2E specs are deterministic batch JSON** (`e2e/specs/*.flow.json`) using

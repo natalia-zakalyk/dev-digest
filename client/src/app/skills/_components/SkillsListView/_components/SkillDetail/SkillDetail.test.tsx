@@ -1,0 +1,105 @@
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import type { Skill } from "@devdigest/shared";
+import messages from "../../../../../../../messages/en/skills.json";
+import common from "../../../../../../../messages/en/common.json";
+import { ToastProvider } from "@/lib/toast";
+
+// Only the data hooks are mocked — the real Config / Stats / Versions tabs render.
+vi.mock("@/lib/hooks/skills", () => ({
+  useSkillStats: () => ({
+    data: {
+      agents: [{ id: "a1", name: "Security Reviewer" }],
+      pull_frequency: 71,
+      accept_rate: 74,
+      findings_30d: 96,
+      findings_by_category: [{ category: "security", count: 52 }],
+    },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+  useSkillVersions: () => ({
+    data: [
+      { version: 2, body: "# Preview heading", created_at: "2026-05-30T00:00:00Z", is_current: true, change_note: "Tightened scope rule" },
+      { version: 1, body: "# Old", created_at: "2026-03-02T00:00:00Z", is_current: false, change_note: null },
+    ],
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+  useUpdateSkill: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteSkill: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+import { SkillDetail } from "./SkillDetail";
+
+afterEach(cleanup);
+
+const SKILL: Skill = {
+  id: "s1",
+  name: "uncovered-branches",
+  description: "d",
+  type: "rubric",
+  source: "manual",
+  body: "# Preview heading",
+  enabled: true,
+  version: 2,
+};
+
+function renderDetail(skill: Skill = SKILL) {
+  render(
+    <NextIntlClientProvider locale="en" messages={{ skills: messages, common }}>
+      <ToastProvider>
+        <SkillDetail skill={skill} onDeleted={vi.fn()} onToggle={vi.fn()} />
+      </ToastProvider>
+    </NextIntlClientProvider>,
+  );
+}
+
+describe("SkillDetail", () => {
+  it("opens on the Preview tab", () => {
+    renderDetail();
+    expect(screen.getByRole("heading", { name: "Preview heading" })).toBeInTheDocument();
+    // The Config tab's editor must not be on screen yet.
+    expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["Config", "Configuration"],
+    ["Stats", "Security Reviewer"],
+    ["Versioning", "Tightened scope rule"],
+  ])("clicking %s renders that tab's real content", (label, text) => {
+    renderDetail();
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Preview heading" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Evals placeholder tab", () => {
+    renderDetail();
+    fireEvent.click(screen.getByRole("button", { name: messages.detail.tabs.evals }));
+    expect(screen.getByText(messages.evalsTab.title)).toBeInTheDocument();
+  });
+
+  it("keeps Run on evals disabled", () => {
+    renderDetail();
+    expect(screen.getByRole("button", { name: messages.detail.runOnEvals })).toBeDisabled();
+  });
+
+  it("shows the red INJECTION DETECTED banner and badge for a flagged skill, leaving the Enabled toggle alone", () => {
+    renderDetail({ ...SKILL, injection: { detected: true, reasons: ["Verdict manipulation"] } });
+    expect(screen.getByRole("alert")).toHaveTextContent("INJECTION DETECTED — DO NOT ENABLE");
+    expect(screen.getByRole("alert")).toHaveTextContent("Verdict manipulation");
+    expect(screen.getByText("Injection detected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Config" }));
+    expect(screen.getByRole("switch")).toBeEnabled();
+  });
+
+  it("a fixed skill (flag cleared) shows neither banner nor badge", () => {
+    renderDetail({ ...SKILL, injection: { detected: false, reasons: [] } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Injection detected")).not.toBeInTheDocument();
+  });
+});

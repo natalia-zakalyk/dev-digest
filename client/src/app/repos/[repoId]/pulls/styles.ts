@@ -4,6 +4,7 @@ import { GRID } from "./constants";
 /** Co-located styles for the PR list page (extracted from inline styles). */
 export const s = {
   row: (hover: boolean): CSSProperties => ({
+    position: "relative",
     display: "grid",
     gridTemplateColumns: GRID,
     alignItems: "center",
@@ -23,6 +24,7 @@ export const s = {
   rowIcon: (color: string): CSSProperties => ({ color, flexShrink: 0 }),
   rowTitleWrap: { minWidth: 0 } satisfies CSSProperties,
   rowTitle: (hover: boolean): CSSProperties => ({
+    display: "block",
     fontSize: 14,
     fontWeight: 550,
     whiteSpace: "nowrap",
@@ -45,6 +47,8 @@ export const s = {
     color: "var(--text-muted)",
     textAlign: "right",
   } satisfies CSSProperties,
+  /** Sits above the row's stretched-link overlay so its controls stay clickable. */
+  raised: { position: "relative", zIndex: 1, justifySelf: "start" } satisfies CSSProperties,
   muted: { color: "var(--text-muted)" } satisfies CSSProperties,
   filterBar: {
     display: "flex",
@@ -55,6 +59,7 @@ export const s = {
     flexWrap: "wrap",
   } satisfies CSSProperties,
   filterChips: { display: "flex", gap: 8 } satisfies CSSProperties,
+  filterSearch: { width: 240 } satisfies CSSProperties,
   filterActions: {
     marginLeft: "auto",
     display: "flex",

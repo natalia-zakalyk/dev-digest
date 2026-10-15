@@ -42,8 +42,8 @@ export API_PORT WEB_PORT
 export NEXT_PUBLIC_API_BASE="http://localhost:${API_PORT}"
 export E2E_BASE_URL="http://localhost:${WEB_PORT}"
 
-log()  { printf '\033[1;36m▸ %s\033[0m\n' "$*"; }
-warn() { printf '\033[1;33m! %s\033[0m\n' "$*"; }
+# shellcheck source=scripts/lib.sh
+source "$ROOT/scripts/lib.sh"
 
 # --- prerequisites -----------------------------------------------------------
 command -v docker >/dev/null || { echo "docker not found"; exit 1; }
@@ -51,32 +51,32 @@ command -v pnpm   >/dev/null || { echo "pnpm not found (npm i -g pnpm)"; exit 1;
 command -v agent-browser >/dev/null || \
   warn "agent-browser not found — install once: npm i -g agent-browser && agent-browser install"
 
+# --- port preflight: fail fast if the alt ports are already taken ------------
+# Runs BEFORE the trap is installed, so the trap's port backstop can never kill
+# a listener this script did not start.
+require_free_ports "$WEB_PORT" "$API_PORT"
+
 # --- teardown trap (installed before we start anything) ----------------------
 SERVER_PID=""
 WEB_PID=""
-# Recursively kill a process and all its descendants. `pnpm exec tsx` / `next dev`
-# spawn the real listener as a GRANDCHILD, so a plain `kill $PID` + `pkill -P`
-# leaves it orphaned (port stays bound). Walk the tree leaves-first instead.
-kill_tree() {
-  local pid="$1"
-  [ -n "$pid" ] || return 0
-  local kid
-  for kid in $(pgrep -P "$pid" 2>/dev/null || true); do kill_tree "$kid"; done
-  kill "$pid" 2>/dev/null || true
-}
+# Throwaway HOME for the API process only: it must never read the developer's
+# ~/.devdigest/secrets.json (BYO keys) — see "API on :$API_PORT" below.
+E2E_HOME="$(mktemp -d "${TMPDIR:-/tmp}/devdigest-e2e-home.XXXXXX")"
 cleanup() {
   local code=$?
   log "tearing down hermetic e2e stack"
   kill_tree "$WEB_PID"
   kill_tree "$SERVER_PID"
-  # Backstop: reap whatever still holds the ISOLATED ports (never the dev stack's
-  # 3000/3001 — only the alt ports this script started).
+  # Backstop: reap whatever still holds the ISOLATED ports. Safe because the
+  # preflight above guarantees nothing else was listening on them before we
+  # started (never touches the dev stack's 3000/3001).
   for port in "$WEB_PORT" "$API_PORT"; do
     local pids
     pids="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)"
     [ -n "$pids" ] && kill $pids 2>/dev/null || true
   done
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
+  if [ -n "${E2E_HOME:-}" ]; then rm -rf "$E2E_HOME"; fi
   exit "$code"
 }
 trap cleanup EXIT INT TERM
@@ -107,7 +107,7 @@ log "Postgres healthy"
 install_if_needed() {
   if [ ! -d "$1/node_modules" ]; then
     log "installing deps in $1"
-    (cd "$1" && pnpm install)
+    (cd "$1" && pnpm install --frozen-lockfile)
   fi
 }
 install_if_needed server
@@ -115,6 +115,7 @@ install_if_needed client
 # reviewer-core's RAW source is imported by the API at runtime (tsconfig alias);
 # without its deps the API crashes at boot with ERR_MODULE_NOT_FOUND. It uses npm.
 [ -d reviewer-core/node_modules ] || { log "installing deps in reviewer-core"; (cd reviewer-core && npm ci); }
+[ -d e2e/node_modules ] || { log "installing deps in e2e"; (cd e2e && npm ci); }
 
 # --- migrate + seed the ISOLATED db ------------------------------------------
 # Hard guard: never let migrate/seed run against anything but the isolated port.
@@ -129,9 +130,22 @@ log "seeding demo data (isolated db)"
 
 # --- API on :$API_PORT -------------------------------------------------------
 # tsx directly (not `pnpm start`, which needs a build; not `tsx watch`, to avoid
-# a mid-suite watcher restart).
-log "starting API on :$API_PORT"
-(cd server && pnpm exec tsx src/server.ts) &
+# a mid-suite watcher restart; not `pnpm exec`, so pnpm never runs under the
+# fake HOME).
+#
+# Key isolation — the hermetic stack must never see the developer's real keys:
+#  - HOME → throwaway dir, so LocalSecretsProvider finds no ~/.devdigest/secrets.json
+#    (missing file = no stored keys) and clones land in the temp dir too;
+#  - provider/GitHub key env vars are removed from the API's environment;
+#  - DOTENV_CONFIG_PATH → a file that does not exist: server/src/platform/config.ts
+#    does `import 'dotenv/config'`, which would otherwise refill the unset keys
+#    from server/.env. Everything the API needs (DATABASE_URL, API_PORT,
+#    WEB_PORT) is already exported above.
+unset_keys=(-u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY -u GITHUB_TOKEN -u GITHUB_PAT)
+while IFS= read -r var; do unset_keys+=(-u "$var"); done < <(compgen -e | grep -E '_API_KEY$' || true)
+log "starting API on :$API_PORT (isolated HOME, no API keys)"
+(cd server && exec env "${unset_keys[@]}" HOME="$E2E_HOME" DOTENV_CONFIG_PATH="$E2E_HOME/.env" \
+  ./node_modules/.bin/tsx src/server.ts) &
 SERVER_PID=$!
 log "waiting for API /health"
 api_up=0

@@ -15,10 +15,12 @@ on:
     branches: [main]
     paths:
       - 'server/**'
+      - 'reviewer-core/**'
       - '.github/workflows/server-integration.yml'
   pull_request:
     paths:
       - 'server/**'
+      - 'reviewer-core/**'
       - '.github/workflows/server-integration.yml'
 
 permissions:
@@ -57,9 +59,7 @@ jobs:
         working-directory: reviewer-core
         run: npm ci
 
-      # Inlined rather than `pnpm test:integration`: server/package.json is
-      # skip-worktree, so we don't rely on the committed file carrying the split
-      # script. The `.it.test` filter selects exactly the 12 DB-backed files.
+      # The `.it.test` filter selects exactly the 12 DB-backed files.
       # vitest's config gives these a 120s timeout for container spin-up; no API
       # keys needed — LLM/git are mocked.
       - run: pnpm exec vitest run .it.test

@@ -8,23 +8,12 @@ import { Button, Icon, Modal } from "@devdigest/ui";
 import { s } from "../../styles";
 import { PromptModalBody } from "../PromptModalBody";
 
-const miniBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 4,
-  borderRadius: 5,
-  border: "1px solid var(--border)",
-  background: "var(--bg-elevated)",
-  color: "var(--text-muted)",
-  cursor: "pointer",
-};
-
 export function PromptBlock({ label, text, color }: { label: string; text: string; color: string }) {
   const t = useTranslations("runs");
   const [open, setOpen] = React.useState(false);
   const [full, setFull] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const preId = React.useId();
   const copy = () => {
     void navigator.clipboard?.writeText(text || "");
     setCopied(true);
@@ -32,41 +21,39 @@ export function PromptBlock({ label, text, color }: { label: string; text: strin
   };
   return (
     <div style={s.promptRow}>
-      <div onClick={() => setOpen((o) => !o)} style={s.promptHead}>
-        <span style={s.promptDot(color)} />
-        <span style={s.promptLabel}>{label}</span>
-        <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            title={t("trace.prompt.copy")}
-            aria-label={t("trace.prompt.copy")}
-            onClick={(e) => {
-              e.stopPropagation();
-              copy();
-            }}
-            style={miniBtnStyle}
-          >
-            {copied ? <Icon.Check size={12} /> : <Icon.Copy size={12} />}
-          </button>
-          <button
-            type="button"
-            title={t("trace.prompt.fullscreen")}
-            aria-label={t("trace.prompt.fullscreen")}
-            onClick={(e) => {
-              e.stopPropagation();
-              setFull(true);
-            }}
-            style={miniBtnStyle}
-          >
-            <Icon.ExternalLink size={12} />
-          </button>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {open ? t("trace.collapse") : t("trace.expand")}
-          </span>
-        </span>
+      <div style={s.promptHead}>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={preId}
+          onClick={() => setOpen((o) => !o)}
+          style={s.promptToggleBtn}
+        >
+          <span style={s.promptDot(color)} />
+          <span style={s.promptLabel}>{label}</span>
+          <span style={s.promptToggle}>{open ? t("trace.collapse") : t("trace.expand")}</span>
+        </button>
+        <button
+          type="button"
+          title={t("trace.prompt.copy")}
+          aria-label={t("trace.prompt.copy")}
+          onClick={copy}
+          style={s.promptMiniBtn}
+        >
+          {copied ? <Icon.Check size={12} /> : <Icon.Copy size={12} />}
+        </button>
+        <button
+          type="button"
+          title={t("trace.prompt.fullscreen")}
+          aria-label={t("trace.prompt.fullscreen")}
+          onClick={() => setFull(true)}
+          style={s.promptMiniBtn}
+        >
+          <Icon.ExternalLink size={12} />
+        </button>
       </div>
       {open && (
-        <pre className="mono" style={s.promptPre}>
+        <pre id={preId} className="mono" style={s.promptPre}>
           {text || "—"}
         </pre>
       )}

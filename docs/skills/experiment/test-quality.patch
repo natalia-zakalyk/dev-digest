@@ -1,0 +1,41 @@
+diff --git a/src/pricing/discount.ts b/src/pricing/discount.ts
+new file mode 100644
+--- /dev/null
++++ b/src/pricing/discount.ts
+@@ -0,0 +1,22 @@
++export interface Order {
++  subtotal: number;
++  couponCode?: string;
++  isFirstOrder: boolean;
++}
++
++/** Discount in cents. Orders of 100.00 or more get 10 %; first orders get 5.00 off. */
++export function discountFor(order: Order): number {
++  if (order.subtotal <= 0) {
++    throw new Error('Subtotal must be positive');
++  }
++  let discount = 0;
++  if (order.subtotal >= 10_000) {
++    discount += Math.round(order.subtotal * 0.1);
++  }
++  if (order.isFirstOrder) {
++    discount += 500;
++  }
++  if (order.couponCode === 'STAFF') {
++    discount = order.subtotal;
++  }
++  return Math.min(discount, order.subtotal);
++}
+diff --git a/src/pricing/discount.test.ts b/src/pricing/discount.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/pricing/discount.test.ts
+@@ -0,0 +1,8 @@
++import { describe, it, expect } from 'vitest';
++import { discountFor } from './discount';
++
++describe('discountFor', () => {
++  it('gives 10% on a large order', () => {
++    expect(discountFor({ subtotal: 20_000, isFirstOrder: false })).toBe(2_000);
++  });
++});

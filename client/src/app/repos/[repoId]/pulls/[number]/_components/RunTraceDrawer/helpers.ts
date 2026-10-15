@@ -26,3 +26,17 @@ export function formatSeconds(ms: number): string {
 export function formatTokens(tokensIn: number, tokensOut: number): string {
   return `${(tokensIn / 1000).toFixed(0)}k→${(tokensOut / 1000).toFixed(1)}k`;
 }
+
+/**
+ * Content-derived React keys for a static list: `keyOf(item)`, with `#n`
+ * appended to repeats so duplicates stay unique without falling back to the index.
+ */
+export function withStableKeys<T>(items: readonly T[], keyOf: (item: T) => string): { key: string; item: T }[] {
+  const seen = new Map<string, number>();
+  return items.map((item) => {
+    const base = keyOf(item);
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return { key: n === 0 ? base : `${base}#${n}`, item };
+  });
+}

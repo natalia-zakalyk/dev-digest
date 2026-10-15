@@ -6,10 +6,15 @@ export function Checkbox({
   checked,
   onChange,
   label,
+  disabled,
+  title,
 }: {
   checked: boolean;
   onChange?: (v: boolean) => void;
   label?: React.ReactNode;
+  /** Not clickable and announced as disabled (e.g. a blocked skill that cannot be linked). */
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <label
@@ -19,13 +24,16 @@ export function Checkbox({
         gap: 10,
         fontSize: 14,
         color: "var(--text-secondary)",
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.55 : 1,
       }}
+      title={title}
     >
       <button
         type="button"
         role="checkbox"
         aria-checked={checked}
+        disabled={disabled}
         onClick={() => onChange?.(!checked)}
         style={{
           width: 16,

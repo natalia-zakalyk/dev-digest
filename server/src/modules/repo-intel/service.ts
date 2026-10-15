@@ -105,6 +105,11 @@ export class RepoIntelService implements RepoIntel {
     this.repo = new RepoIntelRepository(container.db);
   }
 
+  /** Tenancy guard for the HTTP routes: does `repoId` belong to the workspace? */
+  async repoInWorkspace(workspaceId: string, repoId: string): Promise<boolean> {
+    return this.repo.repoInWorkspace(workspaceId, repoId);
+  }
+
   // -------------------------------------------------------------------------
   // Indexing — T2.2 worker. The job handlers (registered via
   // registerIndexJobHandlers below) are the ASYNC entry; these methods are

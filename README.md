@@ -123,14 +123,19 @@ pnpm db:migrate          # apply migrations (NOT run automatically on boot)
 pnpm db:seed             # idempotent demo data (optional)
 pnpm dev                 # API on :3001
 
+cd ../reviewer-core && npm ci                          # the API imports its raw source (npm, not pnpm)
+
 cd ../client && pnpm install && pnpm dev               # web on :3000
 ```
 
 ## Useful scripts
 
-`server/`: `dev` · `build` · `db:migrate` · `db:seed` · `db:generate` · `test` · `typecheck`
+`server/`: `dev` · `build` · `db:migrate` · `db:seed` · `db:generate` · `db:check` · `test` · `typecheck`
 (unit/integration split: `pnpm exec vitest run --exclude '**/*.it.test.ts'` / `pnpm exec vitest run .it.test`)
 `client/`: `dev` · `build` · `start` · `test` · `typecheck`
+`reviewer-core/` (npm): `test` · `typecheck`
+`e2e/` (npm): `test` · `e2e:hermetic` · `typecheck`
+repo root: `./scripts/dev.sh` · `./scripts/e2e.sh` · `./scripts/check-shared-drift.sh` (server ≡ client `vendor/shared`) · `./scripts/install-git-hooks.sh` (pre-push self-review gate)
 
 ## Testing & CI
 
@@ -144,10 +149,23 @@ path filter — full strategy in **[`TESTING.md`](TESTING.md)**.
 | server integration (real Postgres) | `server-integration.yml` | yes |
 | reviewer-core (engine) | `reviewer-core.yml` | no |
 | web e2e (agent-browser, real stack) | `e2e-web.yml` | yes |
+| shared-contract drift (server ≡ client `vendor/shared`) | `shared-drift.yml` | no |
 
 Server tests split by filename: `*.it.test.ts` are DB-backed (testcontainers
 Postgres); everything else is hermetic. The browser e2e flows live in
 [`e2e/`](e2e/README.md) and run deterministically (no LLM).
+
+## Before opening a PR — self-review gate
+
+Run **`/pr-self-review`** in Claude Code (or ask "review my changes before the PR"). It reviews the whole
+branch vs `main` plus uncommitted and untracked files, routing each file to the project skills for its layer
+(UI skills on `client/`, onion/Fastify/Drizzle on `server/` + `reviewer-core/`, …), adds deterministic checks
+(`lint:arch`, shared-contract drift, secrets, *Do not touch*), and writes a PR description.
+A **git pre-push hook** then refuses the push if the review found any CRITICAL, or if the code changed after
+the review. `./scripts/dev.sh` installs the hook; in another clone, run `./scripts/install-git-hooks.sh` once
+(`core.hooksPath` is local git config). `git push --no-verify` bypasses the hook on purpose; don't use it to get
+around findings. Details: [`.claude/skills/pr-self-review/SKILL.md`](.claude/skills/pr-self-review/SKILL.md) ·
+spec [`docs/specs/pr-self-review.md`](docs/specs/pr-self-review.md).
 
 ## Troubleshooting
 

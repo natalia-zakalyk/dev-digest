@@ -14,7 +14,7 @@
  * facade keeps returning degraded — never throws.
  */
 import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import type { Db } from '../../db/client.js';
+import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import { clampIndexedName } from '../../db/schema/context.js';
 import type { DegradedReason, FileRankRow, IndexState, IndexStatus } from './types.js';
@@ -131,7 +131,25 @@ export interface ResolvedCallerRow {
 }
 
 export class RepoIntelRepository {
-  constructor(private db: Db) {}
+  constructor(private db: DbExecutor) {}
+
+  /**
+   * Run `fn` in ONE transaction with a repository bound to it. Each replace
+   * op below is already atomic on its own; this lets a pipeline group several
+   * (e.g. delete-all + insert symbols + insert references) into one unit.
+   */
+  transaction<T>(fn: (repo: RepoIntelRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new RepoIntelRepository(tx)));
+  }
+
+  /** Tenancy guard (BE-F11): does `repoId` belong to `workspaceId`? */
+  async repoInWorkspace(workspaceId: string, repoId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: t.repos.id })
+      .from(t.repos)
+      .where(and(eq(t.repos.id, repoId), eq(t.repos.workspaceId, workspaceId)));
+    return Boolean(row);
+  }
 
   async getRepoBasics(repoId: string): Promise<RepoBasics | null> {
     const [row] = await this.db
@@ -244,8 +262,10 @@ export class RepoIntelRepository {
 
   /** Wipe every cached symbol + reference row for a repo (full-index reset). */
   async deleteAllForRepo(repoId: string): Promise<void> {
-    await this.db.delete(t.symbols).where(eq(t.symbols.repoId, repoId));
-    await this.db.delete(t.references).where(eq(t.references.repoId, repoId));
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.symbols).where(eq(t.symbols.repoId, repoId));
+      await tx.delete(t.references).where(eq(t.references.repoId, repoId));
+    });
   }
 
   /**
@@ -255,14 +275,16 @@ export class RepoIntelRepository {
    */
   async deleteForFiles(repoId: string, paths: string[]): Promise<void> {
     if (paths.length === 0) return;
-    await this.db
-      .delete(t.symbols)
-      .where(and(eq(t.symbols.repoId, repoId), inArray(t.symbols.path, paths)));
-    await this.db
-      .delete(t.references)
-      .where(
-        and(eq(t.references.repoId, repoId), inArray(t.references.fromPath, paths)),
-      );
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(t.symbols)
+        .where(and(eq(t.symbols.repoId, repoId), inArray(t.symbols.path, paths)));
+      await tx
+        .delete(t.references)
+        .where(
+          and(eq(t.references.repoId, repoId), inArray(t.references.fromPath, paths)),
+        );
+    });
   }
 
   /** Batched insert into `symbols`. Uses the same chunk size as blast. */
@@ -271,18 +293,22 @@ export class RepoIntelRepository {
     // Clamp the indexed `name` so a pathological multi-KB identifier can't blow
     // the btree row-size limit and crash the indexer (see clampIndexedName).
     const safe = rows.map((r) => ({ ...r, name: clampIndexedName(r.name) }));
-    for (let i = 0; i < safe.length; i += INSERT_CHUNK_SIZE) {
-      await this.db.insert(t.symbols).values(safe.slice(i, i + INSERT_CHUNK_SIZE));
-    }
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < safe.length; i += INSERT_CHUNK_SIZE) {
+        await tx.insert(t.symbols).values(safe.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+    });
   }
 
   /** Batched insert into `references`. */
   async insertReferences(rows: IndexerReferenceRow[]): Promise<void> {
     if (rows.length === 0) return;
     const safe = rows.map((r) => ({ ...r, toSymbol: clampIndexedName(r.toSymbol) }));
-    for (let i = 0; i < safe.length; i += INSERT_CHUNK_SIZE) {
-      await this.db.insert(t.references).values(safe.slice(i, i + INSERT_CHUNK_SIZE));
-    }
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < safe.length; i += INSERT_CHUNK_SIZE) {
+        await tx.insert(t.references).values(safe.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+    });
   }
 
   /**
@@ -349,38 +375,39 @@ export class RepoIntelRepository {
 
   /** Replace the whole import-graph for a repo (full index / incremental). */
   async replaceEdges(repoId: string, edges: IndexerEdgeRow[]): Promise<void> {
-    await this.db.delete(t.fileEdges).where(eq(t.fileEdges.repoId, repoId));
-    if (edges.length === 0) return;
     const rows = edges.map((e) => ({ repoId, fromFile: e.fromFile, toFile: e.toFile }));
-    for (let i = 0; i < rows.length; i += INSERT_CHUNK_SIZE) {
-      await this.db.insert(t.fileEdges).values(rows.slice(i, i + INSERT_CHUNK_SIZE));
-    }
+    // Atomic replace: readers never see an empty graph mid-reindex, and a
+    // failed insert keeps the previous graph instead of wiping it.
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.fileEdges).where(eq(t.fileEdges.repoId, repoId));
+      for (let i = 0; i < rows.length; i += INSERT_CHUNK_SIZE) {
+        await tx.insert(t.fileEdges).values(rows.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+    });
   }
 
   /** Replace the whole file_rank table for a repo. */
   async replaceFileRank(repoId: string, rows: IndexerFileRankRow[]): Promise<void> {
-    await this.db.delete(t.fileRank).where(eq(t.fileRank.repoId, repoId));
-    if (rows.length === 0) return;
     const values = rows.map((r) => ({ repoId, ...r }));
-    for (let i = 0; i < values.length; i += INSERT_CHUNK_SIZE) {
-      await this.db.insert(t.fileRank).values(values.slice(i, i + INSERT_CHUNK_SIZE));
-    }
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.fileRank).where(eq(t.fileRank.repoId, repoId));
+      for (let i = 0; i < values.length; i += INSERT_CHUNK_SIZE) {
+        await tx.insert(t.fileRank).values(values.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+    });
   }
 
   /** Replace per-file facts; only rows with at least one endpoint/cron persist. */
   async replaceFileFacts(repoId: string, rows: IndexerFileFactsRow[]): Promise<void> {
-    await this.db.delete(t.fileFacts).where(eq(t.fileFacts.repoId, repoId));
-    const nonEmpty = rows.filter((r) => r.endpoints.length > 0 || r.crons.length > 0);
-    if (nonEmpty.length === 0) return;
-    const values = nonEmpty.map((r) => ({
-      repoId,
-      filePath: r.filePath,
-      endpoints: r.endpoints,
-      crons: r.crons,
-    }));
-    for (let i = 0; i < values.length; i += INSERT_CHUNK_SIZE) {
-      await this.db.insert(t.fileFacts).values(values.slice(i, i + INSERT_CHUNK_SIZE));
-    }
+    const values = rows
+      .filter((r) => r.endpoints.length > 0 || r.crons.length > 0)
+      .map((r) => ({ repoId, filePath: r.filePath, endpoints: r.endpoints, crons: r.crons }));
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.fileFacts).where(eq(t.fileFacts.repoId, repoId));
+      for (let i = 0; i < values.length; i += INSERT_CHUNK_SIZE) {
+        await tx.insert(t.fileFacts).values(values.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+    });
   }
 
   /**
@@ -598,21 +625,19 @@ export class RepoIntelRepository {
     files: string[],
     rows: IndexerFileFactsRow[],
   ): Promise<void> {
-    if (files.length > 0) {
-      await this.db
-        .delete(t.fileFacts)
-        .where(and(eq(t.fileFacts.repoId, repoId), inArray(t.fileFacts.filePath, files)));
-    }
-    const nonEmpty = rows.filter((r) => r.endpoints.length > 0 || r.crons.length > 0);
-    if (nonEmpty.length === 0) return;
-    const values = nonEmpty.map((r) => ({
-      repoId,
-      filePath: r.filePath,
-      endpoints: r.endpoints,
-      crons: r.crons,
-    }));
-    for (let i = 0; i < values.length; i += INSERT_CHUNK_SIZE) {
-      await this.db.insert(t.fileFacts).values(values.slice(i, i + INSERT_CHUNK_SIZE));
-    }
+    const values = rows
+      .filter((r) => r.endpoints.length > 0 || r.crons.length > 0)
+      .map((r) => ({ repoId, filePath: r.filePath, endpoints: r.endpoints, crons: r.crons }));
+    if (files.length === 0 && values.length === 0) return;
+    await this.db.transaction(async (tx) => {
+      if (files.length > 0) {
+        await tx
+          .delete(t.fileFacts)
+          .where(and(eq(t.fileFacts.repoId, repoId), inArray(t.fileFacts.filePath, files)));
+      }
+      for (let i = 0; i < values.length; i += INSERT_CHUNK_SIZE) {
+        await tx.insert(t.fileFacts).values(values.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+    });
   }
 }

@@ -1,7 +1,7 @@
 /** Pure helpers for AppShell. */
 
 import type { RepoSummary } from "@devdigest/ui";
-import type { Repo } from "../../lib/types";
+import type { Repo } from "@/lib/types";
 
 /** Map a lib `Repo` to the `RepoSummary` shape the AppFrame shell context expects. */
 export function toShellRepo(r: Repo): RepoSummary {
@@ -18,7 +18,7 @@ export function isTextInput(el: EventTarget | null): boolean {
   const node = el as HTMLElement | null;
   return (
     !!node &&
-    (node.tagName === "INPUT" || node.tagName === "TEXTAREA" || node.isContentEditable)
+    (node.tagName === "INPUT" || node.tagName === "TEXTAREA" || node.isContentEditable === true)
   );
 }
 

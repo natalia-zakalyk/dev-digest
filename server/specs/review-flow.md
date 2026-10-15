@@ -118,10 +118,15 @@ Not workspace-scoped. Fields added to `RunTrace` later must be `.nullish()`.
   replay buffer and a `seq` counter. `RunEvent = { runId, seq, kind, msg, t (HH:MM:SS), data? }`,
   `kind ∈ info | tool | result | error`.
 - The route replays the buffer, then streams live; each SSE message is
-  `id = seq`, `event = kind`, `data = JSON(RunEvent)`. The stream ends when the run is completed
-  (`runBus.complete`), including for late subscribers of a completed run. No rate limit.
-- Events are lost on restart; a run unknown to the current process never signals `done`, so use
-  `/runs/:id/trace` for history.
+  `id = seq`, `event = kind`, `data = JSON(RunEvent)`. When the run is completed
+  (`runBus.complete`), including for late subscribers of a completed run, the stream sends a
+  terminal `event: done` (`data = {runId}`) and ends — clients close on it instead of letting
+  EventSource auto-reconnect. No `done` on client abort or server shutdown. No rate limit.
+- Unknown run, or a run of another workspace → **404** (`service.runExists`). A run this process no
+  longer holds (evicted, or finished before a restart) ends immediately if it has a stored trace;
+  a known run with no events yet ends after a 30 s grace instead of hanging.
+- Client disconnect aborts the wait and unsubscribes. A completed run's buffer is evicted 5 min
+  after `complete`. Events are lost on restart, so use `/runs/:id/trace` for history.
 
 ## 6. Cancel — `POST /runs/:id/cancel` → `{ ok: true }`
 

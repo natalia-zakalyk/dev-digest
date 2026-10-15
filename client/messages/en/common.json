@@ -32,5 +32,33 @@
     "popoverLabel": "Findings",
     "loading": "Loading findings…",
     "empty": "No findings"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred while rendering this page.",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you’re looking for doesn’t exist or has moved.",
+    "goHome": "Go to home"
+  },
+  "toast": {
+    "dismiss": "Dismiss"
+  },
+  "skillType": {
+    "rubric": "rubric",
+    "convention": "convention",
+    "security": "security",
+    "custom": "custom"
+  },
+  "skillSource": {
+    "manual": "Manual",
+    "imported_url": "Imported (URL)",
+    "imported_file": "Imported (file)",
+    "extracted": "Extracted",
+    "community": "Community"
+  },
+  "skillInjection": {
+    "badge": "Injection detected",
+    "bannerTitle": "INJECTION DETECTED — DO NOT ENABLE",
+    "bannerBody": "This skill contains prompt injection patterns. It has been automatically blocked."
   }
 }

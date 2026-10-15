@@ -1,7 +1,11 @@
 {
   "card": {
     "noDescription": "No description",
-    "skillCount": "{count} skills"
+    "skillCount": "{count, plural, one {# skill} other {# skills}}",
+    "delete": "Delete agent",
+    "deleteTitle": "Delete agent \"{name}\"?",
+    "deleteBody": "This cannot be undone.",
+    "deleteConfirm": "Delete"
   },
   "list": {
     "breadcrumbLab": "Skills Lab",
@@ -31,7 +35,8 @@
       "descriptionPlaceholder": "What this agent reviews",
       "provider": "Provider",
       "model": "Model",
-      "systemPrompt": "System prompt"
+      "systemPrompt": "System prompt",
+      "modelLoading": "Loading models…"
     }
   },
   "editor": {
@@ -91,7 +96,14 @@
     "title": "Skills",
     "enabledCount": "{linked} of {total} enabled",
     "filterPlaceholder": "Filter skills…",
-    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
+    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Drag (or Alt + ↑/↓) to reorder; check to enable for this agent.",
+    "loadError": "Could not load skills.",
+    "empty": "No skills in this workspace yet.",
+    "emptyCta": "Create a skill",
+    "noMatch": "No skills match the filter.",
+    "dragHandle": "Reorder {name}",
+    "disabledGlobally": "Disabled globally — not in prompt",
+    "injectionBlocked": "Blocked — injection detected. Fix the skill text to link it."
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

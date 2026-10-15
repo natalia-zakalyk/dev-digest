@@ -4,13 +4,17 @@ import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 
-vi.mock("../../../../../../../lib/hooks/reviews", () => ({
-  useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
+const mutate = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/hooks/reviews", () => ({
+  useFindingAction: () => ({ mutate, isPending: false }),
 }));
 
 import { FindingsPanel } from "./FindingsPanel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mutate.mockClear();
+});
 
 const FINDINGS: FindingRecord[] = [
   {
@@ -102,5 +106,55 @@ describe("FindingsPanel — severity pills and filter", () => {
     renderWithIntl(<FindingsPanel findings={RUN} prId="pr1" />);
     fireEvent.click(screen.getByRole("button", { name: "Suggestion" }));
     expect(screen.getByText("No findings match")).toBeInTheDocument();
+  });
+});
+
+describe("FindingsPanel — keyboard shortcuts", () => {
+  const press = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window) =>
+    fireEvent.keyDown(target, { key, ...init });
+
+  it("`a` accepts the focused finding; `j` then `d` dismisses the next one", () => {
+    renderWithIntl(<FindingsPanel findings={RUN} prId="pr1" />);
+    press("a");
+    expect(mutate).toHaveBeenLastCalledWith({ findingId: "c1", action: "accept", prId: "pr1" });
+    press("j");
+    press("d");
+    expect(mutate).toHaveBeenLastCalledWith({ findingId: "c2", action: "dismiss", prId: "pr1" });
+  });
+
+  it("ignores modifier combos (Cmd/Ctrl/Alt)", () => {
+    renderWithIntl(<FindingsPanel findings={RUN} prId="pr1" />);
+    press("a", { metaKey: true });
+    press("a", { ctrlKey: true });
+    press("d", { altKey: true });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("ignores events another handler already handled", () => {
+    renderWithIntl(<FindingsPanel findings={RUN} prId="pr1" />);
+    const ev = new KeyboardEvent("keydown", { key: "a", cancelable: true });
+    ev.preventDefault();
+    window.dispatchEvent(ev);
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("ignores typing in a text field", () => {
+    renderWithIntl(
+      <>
+        <input aria-label="search" />
+        <FindingsPanel findings={RUN} prId="pr1" />
+      </>,
+    );
+    press("a", {}, screen.getByRole("textbox", { name: "search" }));
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("does not act on the second key of the global `g` chord", () => {
+    renderWithIntl(<FindingsPanel findings={RUN} prId="pr1" />);
+    press("g");
+    press("a"); // `g a` = go to Agents, not accept
+    expect(mutate).not.toHaveBeenCalled();
+    press("a");
+    expect(mutate).toHaveBeenCalledTimes(1);
   });
 });

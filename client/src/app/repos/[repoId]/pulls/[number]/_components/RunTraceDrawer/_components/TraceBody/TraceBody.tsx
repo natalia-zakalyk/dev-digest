@@ -8,7 +8,7 @@ import { Badge } from "@devdigest/ui";
 import type { RunTrace, FindingRecord } from "@devdigest/shared";
 import { PROMPT_COLORS } from "../../constants";
 import { formatUsd } from "@/lib/format-cost";
-import { formatSeconds, formatTokens } from "../../helpers";
+import { formatSeconds, formatTokens, withStableKeys } from "../../helpers";
 import { s } from "../../styles";
 import { TraceSection } from "../TraceSection";
 import { ToolCallRow } from "../ToolCallRow";
@@ -16,7 +16,17 @@ import { PromptBlock } from "../PromptBlock";
 import { FindingsSection } from "../FindingsSection";
 import { Row, Stat } from "../atoms";
 
-export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
+export function TraceBody({
+  trace,
+  findings,
+  repoFullName,
+  headSha,
+}: {
+  trace: RunTrace;
+  findings: FindingRecord[];
+  repoFullName?: string | null;
+  headSha?: string | null;
+}) {
   const t = useTranslations("runs");
   const stats = trace.stats;
   return (
@@ -41,8 +51,8 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
               {trace.specs_read.length === 0 ? (
                 <span style={s.specsNone}>{t("trace.config.none")}</span>
               ) : (
-                trace.specs_read.map((sp, i) => (
-                  <span key={i} className="mono" style={s.spec}>
+                withStableKeys(trace.specs_read, (sp) => sp).map(({ key, item: sp }) => (
+                  <span key={key} className="mono" style={s.spec}>
                     {sp}
                   </span>
                 ))
@@ -69,12 +79,24 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
         </div>
       </TraceSection>
 
-      <FindingsSection findings={findings} />
+      <FindingsSection findings={findings} repoFullName={repoFullName} headSha={headSha} />
 
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
         <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />
         {trace.prompt_assembly.skills != null && (
-          <PromptBlock label={t("trace.prompt.skills")} text={trace.prompt_assembly.skills} color={PROMPT_COLORS.skills} />
+          <PromptBlock
+            label={
+              trace.prompt_assembly.skills_used?.length
+                ? t("trace.prompt.skillsDetail", {
+                    label: t("trace.prompt.skills"),
+                    names: trace.prompt_assembly.skills_used.map((sk) => sk.name).join(", "),
+                    tokens: trace.prompt_assembly.skills_tokens ?? 0,
+                  })
+                : t("trace.prompt.skills")
+            }
+            text={trace.prompt_assembly.skills}
+            color={PROMPT_COLORS.skills}
+          />
         )}
         {trace.prompt_assembly.memory != null && (
           <PromptBlock label={t("trace.prompt.memory")} text={trace.prompt_assembly.memory} color={PROMPT_COLORS.memory} />
@@ -99,7 +121,9 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
         {trace.tool_calls.length === 0 ? (
           <span style={s.noToolCalls}>{t("trace.noToolCalls")}</span>
         ) : (
-          trace.tool_calls.map((tc, i) => <ToolCallRow key={i} tc={tc} />)
+          withStableKeys(trace.tool_calls, (tc) => `${tc.tool}(${tc.args})`).map(({ key, item: tc }) => (
+            <ToolCallRow key={key} tc={tc} />
+          ))
         )}
       </TraceSection>
 

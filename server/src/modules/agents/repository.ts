@@ -1,5 +1,5 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
-import type { Db } from '../../db/client.js';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
@@ -49,7 +49,12 @@ export interface LinkedSkillRow {
 }
 
 export class AgentsRepository {
-  constructor(private db: Db) {}
+  constructor(private db: DbExecutor) {}
+
+  /** Run `fn` in ONE transaction with a repository bound to it. */
+  transaction<T>(fn: (repo: AgentsRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new AgentsRepository(tx)));
+  }
 
   async list(workspaceId: string): Promise<AgentRow[]> {
     return this.db.select().from(t.agents).where(eq(t.agents.workspaceId, workspaceId));
@@ -83,6 +88,10 @@ export class AgentsRepository {
 
   /** Insert an agent AND record version 1 in agent_versions (immutable snapshot). */
   async insert(values: InsertAgent): Promise<AgentRow> {
+    return this.transaction((repo) => repo.insertInTx(values));
+  }
+
+  private async insertInTx(values: InsertAgent): Promise<AgentRow> {
     const [row] = await this.db
       .insert(t.agents)
       .values({
@@ -114,35 +123,44 @@ export class AgentsRepository {
     id: string,
     patch: UpdateAgent,
   ): Promise<AgentRow | undefined> {
-    const existing = await this.getById(workspaceId, id);
-    if (!existing) return undefined;
+    // ONE transaction: the row is locked (FOR UPDATE) while we decide whether
+    // this is a config change, the bump is `version = version + 1` computed by
+    // Postgres, and the snapshot uses the RETURNING row — so two concurrent
+    // edits can't both write the same version or skip a snapshot (DB-12).
+    return this.transaction(async (repo) => {
+      const [existing] = await repo.db
+        .select()
+        .from(t.agents)
+        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+        .for('update');
+      if (!existing) return undefined;
 
-    // A config-affecting change (anything except just toggling enabled) bumps version.
-    const configChanged = isConfigChange(existing, patch);
-    const nextVersion = configChanged ? existing.version + 1 : existing.version;
+      // A config-affecting change (anything except just toggling enabled) bumps version.
+      const configChanged = isConfigChange(existing, patch);
 
-    const [row] = await this.db
-      .update(t.agents)
-      .set({
-        ...(patch.name !== undefined ? { name: patch.name } : {}),
-        ...(patch.description !== undefined ? { description: patch.description } : {}),
-        ...(patch.provider !== undefined ? { provider: patch.provider } : {}),
-        ...(patch.model !== undefined ? { model: patch.model } : {}),
-        ...(patch.systemPrompt !== undefined ? { systemPrompt: patch.systemPrompt } : {}),
-        ...(patch.outputSchema !== undefined
-          ? { outputSchema: patch.outputSchema as object }
-          : {}),
-        ...(patch.strategy !== undefined ? { strategy: patch.strategy } : {}),
-        ...(patch.ciFailOn !== undefined ? { ciFailOn: patch.ciFailOn } : {}),
-        ...(patch.repoIntel !== undefined ? { repoIntel: patch.repoIntel } : {}),
-        ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
-        ...(configChanged ? { version: nextVersion } : {}),
-      })
-      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
-      .returning();
+      const [row] = await repo.db
+        .update(t.agents)
+        .set({
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.provider !== undefined ? { provider: patch.provider } : {}),
+          ...(patch.model !== undefined ? { model: patch.model } : {}),
+          ...(patch.systemPrompt !== undefined ? { systemPrompt: patch.systemPrompt } : {}),
+          ...(patch.outputSchema !== undefined
+            ? { outputSchema: patch.outputSchema as object }
+            : {}),
+          ...(patch.strategy !== undefined ? { strategy: patch.strategy } : {}),
+          ...(patch.ciFailOn !== undefined ? { ciFailOn: patch.ciFailOn } : {}),
+          ...(patch.repoIntel !== undefined ? { repoIntel: patch.repoIntel } : {}),
+          ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+          ...(configChanged ? { version: sql`${t.agents.version} + 1` } : {}),
+        })
+        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+        .returning();
 
-    if (configChanged && row) await this.snapshotVersion(row, nextVersion);
-    return row;
+      if (configChanged && row) await repo.snapshotVersion(row, row.version);
+      return row;
+    });
   }
 
   private async snapshotVersion(row: AgentRow, version: number): Promise<void> {
@@ -199,6 +217,43 @@ export class AgentsRepository {
     return rows.map((r) => ({ skill: r.skill, order: r.order }));
   }
 
+  /**
+   * Skills that go into this agent's prompt: linked AND globally enabled
+   * (`skills.enabled` is the master switch), in link order.
+   */
+  async enabledSkillsForAgent(agentId: string): Promise<LinkedSkillRow[]> {
+    const rows = await this.db
+      .select({ skill: t.skills, order: t.agentSkills.order })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.enabled, true)))
+      .orderBy(asc(t.agentSkills.order));
+    return rows.map((r) => ({ skill: r.skill, order: r.order }));
+  }
+
+  /** Linked-skill count per agent in a workspace (agents without links are absent). */
+  async skillCounts(workspaceId: string): Promise<Map<string, number>> {
+    const rows = await this.db
+      .select({ agentId: t.agentSkills.agentId, n: count() })
+      .from(t.agentSkills)
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+      .where(eq(t.agents.workspaceId, workspaceId))
+      .groupBy(t.agentSkills.agentId);
+    return new Map(rows.map((r) => [r.agentId, Number(r.n)]));
+  }
+
+  /** The skills among `skillIds` that exist in this workspace (guards cross-tenant links, feeds the injection gate). */
+  async workspaceSkillsByIds(
+    workspaceId: string,
+    skillIds: string[],
+  ): Promise<{ id: string; name: string; description: string; body: string }[]> {
+    if (skillIds.length === 0) return [];
+    return this.db
+      .select({ id: t.skills.id, name: t.skills.name, description: t.skills.description, body: t.skills.body })
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, skillIds)));
+  }
+
   async skillIdsForAgent(agentId: string): Promise<string[]> {
     const links = await this.linkedSkills(agentId);
     return links.map((l) => l.skill.id);
@@ -227,10 +282,14 @@ export class AgentsRepository {
    * the list are unlinked.
    */
   async setSkills(agentId: string, skillIds: string[]): Promise<void> {
-    await this.db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
-    if (skillIds.length === 0) return;
-    await this.db
-      .insert(t.agentSkills)
-      .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    // Delete + re-insert atomically: a failed insert (e.g. unknown skill id)
+    // must not leave the agent with NO skills.
+    await this.transaction(async (repo) => {
+      await repo.db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (skillIds.length === 0) return;
+      await repo.db
+        .insert(t.agentSkills)
+        .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    });
   }
 }

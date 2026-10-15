@@ -59,12 +59,28 @@ describe('citation grounding gate', () => {
     expect(res.dropped[0]!.reason).toMatch(/not present in diff/);
   });
 
-  it('full-file kinds (secret_leak) ground against the file, not a hunk', () => {
+  it('scanner full-file kinds (secret_leak) ground against the file, not a hunk', () => {
+    const res = groundFindings(
+      [f({ file: 'src/config.ts', start_line: 1, end_line: 1, kind: 'secret_leak' })],
+      diff,
+      { source: 'scanner' },
+    );
+    expect(res.kept).toHaveLength(1);
+  });
+
+  it('an LLM secret_leak finding outside every hunk is dropped (no kind exemption by default)', () => {
     const res = groundFindings(
       [f({ file: 'src/config.ts', start_line: 1, end_line: 1, kind: 'secret_leak' })],
       diff,
     );
-    expect(res.kept).toHaveLength(1);
+    expect(res.kept).toHaveLength(0);
+    expect(res.dropped[0]!.reason).toMatch(/do not intersect/);
+  });
+
+  it('drops a reversed line range instead of swapping it', () => {
+    const res = groundFindings([f({ file: 'src/config.ts', start_line: 12, end_line: 10 })], diff);
+    expect(res.kept).toHaveLength(0);
+    expect(res.dropped[0]!.reason).toMatch(/end_line is before start_line/);
   });
 
   it('range intersection across N+1 hunk lines', () => {

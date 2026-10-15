@@ -1,0 +1,79 @@
+{
+  "skill_name": "onion-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need a POST /repos/:id/archive endpoint that marks a repo archived and cancels its pending clone/index jobs. Which files do I touch in server/ and what goes in each? Don't write the code, just the plan.",
+      "expected_output": "routes.ts: schema IdParams, getContext, one service call. service.ts: use case (load repo via repository, NotFoundError if null, cancel jobs via container.jobs port, call repository.markArchived). repository.ts: the Drizzle update scoped by workspaceId. Pure rule (can it be archived?) in helpers.ts. Test: service unit test with fakes, route via inject, repository *.it.test.ts. Run pnpm lint:arch.",
+      "files": [],
+      "assertions": [
+        "Keeps the handler in routes.ts thin: schema validation, getContext, a single service call",
+        "Puts the use case (orchestration, not-found decision, job cancellation) in service.ts",
+        "Puts the Drizzle update in repository.ts, scoped by workspaceId",
+        "Does not import drizzle-orm or db/schema in routes.ts or service.ts",
+        "Mentions running pnpm lint:arch (plus typecheck/test)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "In server/src/modules/pulls/routes.ts I just want to add one more `container.db.update(t.pullRequests)...` to mark PRs stale. It's one line, other handlers there already do it. Fine?",
+      "expected_output": "No: routes-no-persistence forbids Drizzle in routes; existing ones are baseline violations, not precedent. Add PullsRepository.markStale + service method; handler calls the service. Don't regenerate the baseline to hide it.",
+      "files": [],
+      "assertions": [
+        "Says no, and names the rule (routes must not touch Drizzle/db) or the lint rule routes-no-persistence",
+        "Explains that the existing handlers are known baseline violations, not a precedent",
+        "Proposes a repository method plus a service method called from the handler",
+        "Warns against adding the new violation to the baseline / regenerating it to make CI green"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Write me a unit test for RepoIntelService.resync that doesn't need Docker. Currently tests do `(service as unknown as { repo }).repo = ...` — is there a better way?",
+      "expected_output": "Explains the smell (service builds its own repository and takes whole Container). Proposes constructor Deps with a RepoIntelStore port and an in-memory fake + MockGitClient; test via constructor injection. Notes this also breaks the container cycle. Keeps it hermetic (*.test.ts, not *.it.test.ts).",
+      "files": [],
+      "assertions": [
+        "Identifies monkey-patching a private field as a symptom of the service constructing its own repository / taking the whole Container",
+        "Proposes injecting a repository port (narrow Deps object) through the constructor",
+        "Uses an in-memory fake (and/or adapters/mocks.ts doubles) rather than vi.mock on our own module paths",
+        "Keeps the test hermetic: named *.test.ts, no Postgres"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I want to fetch PR review comments from GitHub and show them in the run timeline. Where does the Octokit call go, and in what shape does the data reach reviews/service.ts?",
+      "expected_output": "Extend the GitHubClient port (vendor/shared/adapters.ts) with a caller-shaped method; implement in adapters/github/octokit.ts with zod safeParse + mapping to a contract/domain type (no Octokit types leak); add to MockGitHubClient; service gets it via container.github(); SDK errors → ExternalServiceError; contract changes in both vendored shared copies.",
+      "files": [],
+      "assertions": [
+        "Puts the Octokit call in the GitHub adapter (adapters/github/octokit.ts), behind the GitHubClient port",
+        "Says the port method is shaped by the caller's need and returns domain/contract types — no Octokit types leak",
+        "Parses/maps the external payload in the adapter (anti-corruption), and maps SDK errors to ExternalServiceError",
+        "Adds the method to the mock in adapters/mocks.ts",
+        "If a contract changes, mentions updating both vendor/shared copies"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Saving a review and its findings is two inserts right now. How should I make it atomic with Drizzle in this codebase?",
+      "expected_output": "Use case (service/executor) owns the transaction via a withTx helper/port over db.transaction; repositories accept tx; no LLM/GitHub call inside the transaction; not in routes; integration test in *.it.test.ts asserting rollback.",
+      "files": [],
+      "assertions": [
+        "The service/executor owns the transaction boundary (Unit of Work / withTx), not the route or the repository",
+        "Repositories accept the transaction executor (tx) instead of opening their own",
+        "Says not to hold the transaction across LLM/GitHub calls",
+        "Recommends verifying with a *.it.test.ts (real Postgres) test, e.g. rollback"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Хочу додати в reviewer-core читання .devdigest/rules.md з репозиторію, щоб підкладати правила в промпт. Куди це покласти?",
+      "expected_output": "Не в reviewer-core: він чистий (крім LLMProvider), fs заборонений (reviewer-core-no-io-builtins). Сервер читає файл (через GitClient/адаптер), передає текст у ReviewInput (слот specs/skills/memory); reviewer-core лише вставляє в промпт.",
+      "files": [],
+      "assertions": [
+        "Refuses to read files inside reviewer-core and explains it must stay pure (no fs/env/IO except LLMProvider)",
+        "Puts the file read on the server side, behind an adapter/port (e.g. GitClient) or in the run executor via a port",
+        "Passes the content into reviewer-core through ReviewInput (an existing prompt slot)",
+        "Answers in Ukrainian"
+      ]
+    }
+  ]
+}

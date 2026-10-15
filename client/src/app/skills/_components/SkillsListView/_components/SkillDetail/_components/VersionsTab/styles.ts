@@ -1,0 +1,58 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for VersionsTab. */
+export const s = {
+  head: { display: "flex", alignItems: "center", gap: 12, marginBottom: 6 } satisfies CSSProperties,
+  title: { fontSize: 22, fontWeight: 600, color: "var(--text-primary)", margin: 0 } satisfies CSSProperties,
+  count: {
+    fontSize: 12,
+    padding: "3px 10px",
+    borderRadius: 6,
+    background: "var(--bg-hover)",
+    color: "var(--text-secondary)",
+  } satisfies CSSProperties,
+  subtitle: { fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, margin: "0 0 20px" } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
+  item: { border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--bg-surface)" } satisfies CSSProperties,
+  row: { display: "flex", alignItems: "center", gap: 16, padding: "14px 16px" } satisfies CSSProperties,
+  chip: (current: boolean): CSSProperties => ({
+    fontSize: 13,
+    fontWeight: 600,
+    minWidth: 38,
+    height: 34,
+    padding: "0 8px",
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 8,
+    background: current ? "var(--accent-bg)" : "var(--bg-hover)",
+    color: current ? "var(--accent-text)" : "var(--text-secondary)",
+  }),
+  info: { flex: 1, minWidth: 0 } satisfies CSSProperties,
+  rowTitle: { fontSize: 15, fontWeight: 500, color: "var(--text-primary)" } satisfies CSSProperties,
+  date: { fontSize: 13, color: "var(--text-muted)", marginTop: 4 } satisfies CSSProperties,
+  currentPill: {
+    fontSize: 13,
+    fontWeight: 500,
+    padding: "3px 12px",
+    borderRadius: 999,
+    background: "var(--ok-bg)",
+    color: "var(--ok)",
+  } satisfies CSSProperties,
+  actions: { display: "flex", gap: 6 } satisfies CSSProperties,
+  diff: {
+    borderTop: "1px solid var(--border)",
+    background: "var(--bg-elevated)",
+  } satisfies CSSProperties,
+  diffTitle: { fontSize: 12, color: "var(--text-muted)", padding: "8px 12px 4px" } satisfies CSSProperties,
+  diffBody: { maxHeight: 280, overflow: "auto", fontSize: 12, lineHeight: 1.6, padding: "0 0 8px" } satisfies CSSProperties,
+  line: (kind: "same" | "add" | "del"): CSSProperties => ({
+    display: "flex",
+    gap: 8,
+    padding: "0 12px",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    background: kind === "add" ? "var(--ok-bg)" : kind === "del" ? "var(--crit-bg)" : "transparent",
+    color: kind === "add" ? "var(--ok)" : kind === "del" ? "var(--crit)" : "var(--text-muted)",
+  }),
+  sign: { width: 10, flexShrink: 0, userSelect: "none" } satisfies CSSProperties,
+} as const;

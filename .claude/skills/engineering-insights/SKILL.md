@@ -12,10 +12,10 @@ hooks:
 
 # Engineering Insights
 
-1. **Start — read before answering:** read the whole `INSIGHTS.md` of every module the prompt concerns (`server/`, `client/`, `reviewer-core/`, `e2e/`; root `INSIGHTS.md` for cross-module, `scripts/`, `docs/`) — a module's CLAUDE.md is not loaded until you touch its files. Say in one line which file you read and which entries apply (or "none relevant"), then treat them as high-confidence guidance unless the user says otherwise.
+1. **Start — read before answering:** read the whole `INSIGHTS.md` of every module the prompt concerns (`server/`, `client/`, `reviewer-core/`, `e2e/`; root `INSIGHTS.md` for cross-module, `scripts/`, `docs/`) — a module's AGENTS.md is not loaded until you touch its files. Say in one line which file you read and which entries apply (or "none relevant"), then treat them as high-confidence guidance unless the user says otherwise.
 2. **Capture as you go:** highest signal first — user corrections, then gotchas that cost real time, dead ends, env/dependency requirements, decisions whose reason isn't visible in code.
-3. **Apply the bar — all three must hold:** not obvious from the code, README, `docs/` or CLAUDE.md; will recur (stable, not code in flux); changes what the next agent does. Most sessions produce nothing — never invent insights. See [examples.md](examples.md).
-4. **Re-read the target before writing:** already there (even reworded) → skip; contradicts an entry → append the new one with `(supersedes: <old>)` and tell the user; the same problem keeps recurring → also propose turning it into a CLAUDE.md rule, test or check.
+3. **Apply the bar — all three must hold:** not obvious from the code, README, `docs/` or AGENTS.md; will recur (stable, not code in flux); changes what the next agent does. Most sessions produce nothing — never invent insights. See [examples.md](examples.md).
+4. **Re-read the target before writing:** already there (even reworded) → skip; contradicts an entry → append the new one with `(supersedes: <old>)` and tell the user; the same problem keeps recurring → also propose turning it into an AGENTS.md rule, test or check.
 5. **Write — append only, via the script, never with Write/Edit** (a hook blocks those on `INSIGHTS*.md`):
    `node ${CLAUDE_SKILL_DIR}/scripts/append-insight.mjs <module>/INSIGHTS.md "<Section>" "- YYYY-MM-DD — <specific what> → <what to do / why> (<file>:<line>[, <commit>])"`
    Evidence is mandatory: at least one `file:line` (the script refuses an entry without it; a commit hash alone is not enough).

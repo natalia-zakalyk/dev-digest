@@ -7,7 +7,9 @@ import { useTranslations } from "next-intl";
 import { Toggle, EmptyState, Chip, SEV } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
-import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
+import { useFindingAction } from "@/lib/hooks/reviews";
+import { isTextInput } from "@/components/app-shell/helpers";
+import { G_NAV_TIMEOUT_MS } from "@/components/app-shell/constants";
 import { COUNTED_SEVERITIES, SEVERITY_KEY, countBySeverity, type CountedSeverity } from "@/lib/findings";
 import { KEY_TO_ACTION } from "./constants";
 import { visibleFindings } from "./helpers";
@@ -41,11 +43,33 @@ export function FindingsPanel({
   React.useEffect(() => setFocusIdx(0), [severity, hideLow]);
   const present = COUNTED_SEVERITIES.filter((sev) => counts[SEVERITY_KEY[sev]] > 0);
 
+  // Latest values for the window listener, so it subscribes once.
+  const latest = React.useRef({ shown, focusIdx, action, prId });
+  React.useEffect(() => {
+    latest.current = { shown, focusIdx, action, prId };
+  });
+
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
+    // Mirror the global `g`-then-key navigation chord (useGlobalShortcuts) so
+    // e.g. `g a` (go to Agents) doesn't also accept the focused finding.
+    let gPending = false;
+    let gTimer: ReturnType<typeof setTimeout> | undefined;
     const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      if (isTextInput(e.target)) return;
+      if (e.key === "g") {
+        gPending = true;
+        clearTimeout(gTimer);
+        gTimer = setTimeout(() => (gPending = false), G_NAV_TIMEOUT_MS);
+        return;
+      }
+      if (gPending) {
+        gPending = false;
+        clearTimeout(gTimer);
+        return;
+      }
+      const { shown, focusIdx, action, prId } = latest.current;
       if (e.key === "j") setFocusIdx((i) => Math.min(i + 1, shown.length - 1));
       else if (e.key === "k") setFocusIdx((i) => Math.max(i - 1, 0));
       else if (KEY_TO_ACTION[e.key] && shown[focusIdx]) {
@@ -53,8 +77,11 @@ export function FindingsPanel({
       }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [shown, focusIdx, action, prId]);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      clearTimeout(gTimer);
+    };
+  }, []);
 
   return (
     <div>

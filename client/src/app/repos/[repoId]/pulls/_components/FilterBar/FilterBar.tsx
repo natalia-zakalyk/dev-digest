@@ -4,7 +4,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Chip, Button, TextInput, SelectInput } from "@devdigest/ui";
-import { STATUS_FILTERS } from "../../constants";
+import { STATUS_FILTERS, SORT_ORDERS, type SortOrder } from "../../constants";
 import { s } from "../../styles";
 
 export function FilterBar({
@@ -21,20 +21,21 @@ export function FilterBar({
   onActive: (k: string) => void;
   query: string;
   onQuery: (v: string) => void;
-  sort: string;
-  onSort: (v: string) => void;
+  sort: SortOrder;
+  onSort: (v: SortOrder) => void;
   onRefresh: () => void;
   refreshing: boolean;
 }) {
   const t = useTranslations("prReview");
-  const sortOptions = [
-    { value: "newest", label: t("list.sort.newest") },
-    { value: "oldest", label: t("list.sort.oldest") },
-  ];
+  const sortOptions = SORT_ORDERS.map((value) => ({ value, label: t(`list.sort.${value}`) }));
+  const handleSort = (v: string) => {
+    const next = SORT_ORDERS.find((o) => o === v);
+    if (next) onSort(next);
+  };
   return (
     <div style={s.filterBar}>
       <div style={s.filterChips}>
-        <div style={{ width: 240 }}>
+        <div style={s.filterSearch}>
           <TextInput value={query} onChange={onQuery} placeholder={t("list.filterPlaceholder")} />
         </div>
         {STATUS_FILTERS.map(({ key, labelKey }) => (
@@ -44,7 +45,7 @@ export function FilterBar({
         ))}
       </div>
       <div style={s.filterActions}>
-        <SelectInput value={sort} onChange={onSort} options={sortOptions} mono={false} />
+        <SelectInput value={sort} onChange={handleSort} options={sortOptions} mono={false} />
         <Button
           kind="secondary"
           size="sm"

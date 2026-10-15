@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { LLMProvider, StructuredResult } from '@devdigest/shared';
 import { MockLLMProvider, MockGitClient } from '../../server/src/adapters/mocks.js';
-import { reviewPullRequest } from '../src/index.js';
+import { reviewPullRequest, DEFAULT_REVIEW_MAX_TOKENS } from '../src/index.js';
+import type { StructuredRequest } from '@devdigest/shared';
 
 /**
  * Engine-level test for reviewPullRequest (the core lifted out of the server's
@@ -166,5 +167,77 @@ describe('reviewPullRequest (engine)', () => {
     await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: recorder, sessionId: 'sess-abc' });
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
+  });
+});
+
+describe('reviewPullRequest — map-reduce + output cap', () => {
+  const approve = { verdict: 'approve', summary: 'ok', score: 100, findings: [] };
+  const threeFiles =
+    'diff --git a/foo.ts b/foo.ts\n--- a/foo.ts\n+++ b/foo.ts\n@@ -1,1 +1,2 @@\n x\n+FOO_TS\n' +
+    'diff --git a/foo.tsx b/foo.tsx\n--- a/foo.tsx\n+++ b/foo.tsx\n@@ -1,1 +1,2 @@\n x\n+FOO_TSX\n' +
+    'diff --git a/sub/foo.ts b/sub/foo.ts\n--- a/sub/foo.ts\n+++ b/sub/foo.ts\n@@ -1,1 +1,2 @@\n x\n+SUB_FOO\n';
+  const structuredReqs = (llm: MockLLMProvider) =>
+    llm.calls
+      .filter((c) => c.method === 'completeStructured')
+      .map((c) => c.req as StructuredRequest<unknown>);
+  const userMsg = (r: StructuredRequest<unknown>) => r.messages.find((m) => m.role === 'user')!.content;
+
+  it('one chunk per file; each chunk prompt carries only its own file slice', async () => {
+    const llm = new MockLLMProvider('openai', { structured: approve });
+    const diff = await new MockGitClient({ diff: threeFiles }).diff();
+    const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, strategy: 'map-reduce' });
+
+    expect(outcome.mode).toBe('map-reduce');
+    expect(outcome.chunks.map((c) => c.label)).toEqual(['foo.ts', 'foo.tsx', 'sub/foo.ts']);
+    const users = structuredReqs(llm).map(userMsg);
+    expect(users).toHaveLength(3);
+    expect(users[0]).toContain('+FOO_TS\n');
+    expect(users[0]).not.toContain('FOO_TSX');
+    expect(users[0]).not.toContain('SUB_FOO');
+    expect(users[1]).toContain('FOO_TSX');
+    expect(users[1]).not.toContain('SUB_FOO');
+    expect(users[2]).toContain('SUB_FOO');
+    expect(users[2]).not.toContain('FOO_TSX');
+  });
+
+  it(`sends maxTokens=${DEFAULT_REVIEW_MAX_TOKENS} by default on every call`, async () => {
+    const llm = new MockLLMProvider('openai', { structured: approve });
+    const diff = await new MockGitClient({ diff: threeFiles }).diff();
+    await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, strategy: 'map-reduce' });
+    const reqs = structuredReqs(llm);
+    expect(reqs).toHaveLength(3);
+    expect(reqs.every((r) => r.maxTokens === DEFAULT_REVIEW_MAX_TOKENS)).toBe(true);
+  });
+
+  it('honours a maxTokens override', async () => {
+    const llm = new MockLLMProvider('openai', { structured: approve });
+    const diff = await new MockGitClient().diff();
+    await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, maxTokens: 2048 });
+    expect(structuredReqs(llm).map((r) => r.maxTokens)).toEqual([2048]);
+  });
+
+  it('an LLM secret_leak finding outside every hunk is dropped (no kind exemption for LLM output)', async () => {
+    const leak = {
+      ...approve,
+      findings: [
+        {
+          id: 'leak',
+          severity: 'CRITICAL',
+          category: 'security',
+          title: 'secret',
+          file: 'src/config.ts',
+          start_line: 1,
+          end_line: 1,
+          rationale: 'r',
+          confidence: 0.9,
+          kind: 'secret_leak',
+        },
+      ],
+    };
+    const llm = new MockLLMProvider('openai', { structured: leak });
+    const diff = await new MockGitClient().diff();
+    const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm });
+    expect(outcome.review.findings).toHaveLength(0);
+    expect(outcome.dropped[0]!.reason).toMatch(/do not intersect/);
   });
 });

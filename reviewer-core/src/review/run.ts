@@ -30,6 +30,13 @@ import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
 export const DEFAULT_MAP_THRESHOLD_LINES = 400;
 /** Default structured-output reprompt retries (matches REVIEW_MAX_RETRIES). */
 export const DEFAULT_REVIEW_MAX_RETRIES = 2;
+/**
+ * Default output-token cap per LLM call. Without it output is unbounded (an
+ * 87-file single-pass run once emitted ~100k tokens in 17 min); a full Review
+ * JSON fits comfortably, with headroom for reasoning models that count
+ * reasoning tokens against `max_tokens`.
+ */
+export const DEFAULT_REVIEW_MAX_TOKENS = 16_000;
 
 export type ReviewStrategy = 'auto' | 'single-pass' | 'map-reduce';
 export type ReviewMode = 'single-pass' | 'map-reduce';
@@ -75,6 +82,8 @@ export interface ReviewInput {
   task?: string;
   /** Override the structured-output retry budget. */
   maxRetries?: number;
+  /** Output-token cap per LLM call (default DEFAULT_REVIEW_MAX_TOKENS). */
+  maxTokens?: number;
   /** Override the map-reduce line threshold. */
   mapThresholdLines?: number;
   /**
@@ -128,6 +137,7 @@ function selectMode(strategy: ReviewStrategy, diff: UnifiedDiff, threshold: numb
 export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutcome> {
   const threshold = input.mapThresholdLines ?? DEFAULT_MAP_THRESHOLD_LINES;
   const maxRetries = input.maxRetries ?? DEFAULT_REVIEW_MAX_RETRIES;
+  const maxTokens = input.maxTokens ?? DEFAULT_REVIEW_MAX_TOKENS;
   const mode = selectMode(input.strategy ?? 'auto', input.diff, threshold);
   const emit = (kind: RunEventKind, msg: string, data?: unknown) =>
     input.onEvent?.({ kind, msg, data });
@@ -182,6 +192,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
       schemaName: 'Review',
       messages: a.messages,
       maxRetries,
+      maxTokens,
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     });
     tokensIn += res.tokensIn;
@@ -200,6 +211,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   );
 
   // SHARED citation-grounding gate (the only post-step; not duplicated per strategy).
+  // Every finding here is LLM output → default source 'llm': no kind-based exemption.
   const ground = groundFindings(merged.findings, input.diff);
   const grounding = groundingSummary(ground);
   for (const d of ground.dropped) {

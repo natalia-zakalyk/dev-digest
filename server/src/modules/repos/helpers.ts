@@ -1,43 +1,32 @@
 import { type Repo } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
 import { AppError } from '../../platform/errors.js';
-import {
-  GITHUB_URL_REGEX,
-  GIT_TOKEN_USERNAME,
-  GITHUB_HTTPS_HOST,
-} from './constants.js';
+import { GITHUB_URL_REGEX, FORBIDDEN_REPO_SEGMENTS } from './constants.js';
 
 /**
  * F1 — repos pure helpers (extracted from routes.ts; no behaviour change).
  * Pure functions only — no I/O, no DB, no container.
  */
 
-/** Parse `owner`/`name` from a GitHub URL (https or ssh form). */
+/**
+ * Parse `owner`/`name` from a GitHub URL (https or ssh form). Rejects anything
+ * that isn't github.com (anchored regex) and `.`/`..` segments, which would
+ * otherwise resolve outside the clone dir (path traversal → rm -rf of clones).
+ */
 export function parseRepoUrl(url: string): { owner: string; name: string } {
   // https://github.com/owner/repo(.git)  |  git@github.com:owner/repo.git
   const match = url.match(GITHUB_URL_REGEX);
-  if (!match?.[1] || !match[2]) {
+  const owner = match?.[1];
+  const name = match?.[2];
+  if (
+    !owner ||
+    !name ||
+    FORBIDDEN_REPO_SEGMENTS.has(owner) ||
+    FORBIDDEN_REPO_SEGMENTS.has(name)
+  ) {
     throw new AppError('invalid_repo_url', `Could not parse owner/repo from '${url}'`, 400);
   }
-  return { owner: match[1], name: match[2] };
-}
-
-/**
- * Embed a token into an https github.com URL so private clones authenticate
- * non-interactively. SSH/non-GitHub URLs are left untouched.
- */
-export function withGitHubToken(url: string, token: string): string {
-  try {
-    const u = new URL(url);
-    if (u.protocol === 'https:' && u.hostname === GITHUB_HTTPS_HOST) {
-      u.username = GIT_TOKEN_USERNAME;
-      u.password = token;
-      return u.toString();
-    }
-  } catch {
-    /* non-URL (e.g. git@github.com:...) — leave as-is */
-  }
-  return url;
+  return { owner, name };
 }
 
 /** Map a persisted repo row to the API `Repo` DTO. */

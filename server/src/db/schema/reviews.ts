@@ -1,49 +1,84 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, text, integer, jsonb, timestamp, doublePrecision } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  jsonb,
+  timestamp,
+  doublePrecision,
+  index,
+  check,
+} from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { pullRequests } from './pulls';
+import { agents } from './agents';
+import { agentRuns } from './runs';
 
 // ============================================================ Review & findings
 
-export const reviews = pgTable('reviews', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  prId: uuid('pr_id')
-    .notNull()
-    .references(() => pullRequests.id, { onDelete: 'cascade' }),
-  agentId: uuid('agent_id'),
-  /** The agent_run that produced this review (links the timeline run ↔ review). */
-  runId: uuid('run_id'),
-  kind: text('kind', { enum: ['summary', 'review'] }).notNull(),
-  verdict: text('verdict'),
-  summary: text('summary'),
-  score: integer('score'),
-  model: text('model'),
-  createdAt: now(),
-});
+export const reviews = pgTable(
+  'reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    prId: uuid('pr_id')
+      .notNull()
+      .references(() => pullRequests.id, { onDelete: 'cascade' }),
+    /** Deleting the agent keeps its reviews (history) with agent_id nulled. */
+    agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'set null' }),
+    /** The agent_run that produced this review (links the timeline run ↔ review).
+     *  Deleting the run deletes the review (+ its findings via their cascade). */
+    runId: uuid('run_id').references(() => agentRuns.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['summary', 'review'] }).notNull(),
+    verdict: text('verdict'),
+    summary: text('summary'),
+    score: integer('score'),
+    model: text('model'),
+    createdAt: now(),
+  },
+  (t) => ({
+    // PR page + PR-list rollups: "reviews of these PRs, newest first".
+    prCreatedIdx: index('reviews_pr_created_idx').on(t.prId, t.createdAt.desc()),
+    runIdx: index('reviews_run_idx').on(t.runId),
+    // FK reviews.agent_id (ON DELETE SET NULL): without it deleting an agent seq-scans reviews.
+    agentIdx: index('reviews_agent_idx').on(t.agentId),
+  }),
+);
 
-export const findings = pgTable('findings', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  reviewId: uuid('review_id')
-    .notNull()
-    .references(() => reviews.id, { onDelete: 'cascade' }),
-  file: text('file').notNull(),
-  startLine: integer('start_line').notNull(),
-  endLine: integer('end_line').notNull(),
-  severity: text('severity').notNull(),
-  category: text('category').notNull(),
-  title: text('title').notNull(),
-  rationale: text('rationale').notNull(),
-  suggestion: text('suggestion'),
-  confidence: doublePrecision('confidence').notNull(),
-  kind: text('kind').notNull().default('finding'),
-  trifectaComponents: jsonb('trifecta_components').$type<string[]>(),
-  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
-  dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
-});
+export const findings = pgTable(
+  'findings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reviewId: uuid('review_id')
+      .notNull()
+      .references(() => reviews.id, { onDelete: 'cascade' }),
+    file: text('file').notNull(),
+    startLine: integer('start_line').notNull(),
+    endLine: integer('end_line').notNull(),
+    severity: text('severity').notNull(),
+    category: text('category').notNull(),
+    title: text('title').notNull(),
+    rationale: text('rationale').notNull(),
+    suggestion: text('suggestion'),
+    confidence: doublePrecision('confidence').notNull(),
+    kind: text('kind').notNull().default('finding'),
+    trifectaComponents: jsonb('trifecta_components').$type<string[]>(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+  },
+  (t) => ({
+    reviewIdx: index('findings_review_idx').on(t.reviewId),
+    // Mirrors the `Severity` enum in @devdigest/shared (contracts/findings.ts).
+    severityChk: check(
+      'findings_severity_chk',
+      sql`${t.severity} IN ('CRITICAL', 'WARNING', 'SUGGESTION')`,
+    ),
+  }),
+);
 
 export const prIntent = pgTable('pr_intent', {
   prId: uuid('pr_id')

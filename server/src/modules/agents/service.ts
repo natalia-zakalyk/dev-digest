@@ -10,6 +10,8 @@ import type {
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
 import { toAgentDto, toAgentVersionDto } from './helpers.js';
+import { ValidationError } from '../../platform/errors.js';
+import { detectInjection } from '../skills/index.js';
 
 /**
  * A2 — agents service. Business logic for the Agents tab + Agent Editor.
@@ -56,13 +58,18 @@ export class AgentsService {
   }
 
   async list(workspaceId: string): Promise<Agent[]> {
-    const rows = await this.repo.list(workspaceId);
-    return rows.map(toAgentDto);
+    const [rows, counts] = await Promise.all([
+      this.repo.list(workspaceId),
+      this.repo.skillCounts(workspaceId),
+    ]);
+    return rows.map((row) => toAgentDto(row, counts.get(row.id) ?? 0));
   }
 
   async get(workspaceId: string, id: string): Promise<Agent | undefined> {
     const row = await this.repo.getById(workspaceId, id);
-    return row ? toAgentDto(row) : undefined;
+    if (!row) return undefined;
+    const links = await this.repo.skillIdsForAgent(id);
+    return toAgentDto(row, links.length);
   }
 
   /** Delete an agent (and its versions/skill-links, via cascade). */
@@ -152,6 +159,10 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
+    if (new Set(skillIds).size !== skillIds.length) {
+      throw new ValidationError('skill_ids contains duplicates');
+    }
+    await this.assertWorkspaceSkills(workspaceId, skillIds, agentId);
     await this.repo.setSkills(agentId, skillIds);
     return this.skillLinks(agentId);
   }
@@ -165,10 +176,33 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
+    await this.assertWorkspaceSkills(workspaceId, [skillId], agentId);
     const existing = await this.repo.linkedSkills(agentId);
     const resolvedOrder = order ?? existing.length;
     await this.repo.linkSkill(agentId, skillId, resolvedOrder);
     return this.skillLinks(agentId);
+  }
+
+  /**
+   * Every skill id must exist in the agent's workspace (no cross-tenant links), and a skill flagged by the
+   * injection gate cannot be NEWLY linked (422 with the reasons). A flagged skill the agent already has stays
+   * allowed in a re-save, so reordering/unlinking other skills keeps working; it is skipped at prompt time.
+   */
+  private async assertWorkspaceSkills(workspaceId: string, skillIds: string[], agentId: string): Promise<void> {
+    if (skillIds.length === 0) return;
+    const found = await this.repo.workspaceSkillsByIds(workspaceId, skillIds);
+    if (found.length !== skillIds.length) throw new ValidationError('Unknown skill id for this workspace');
+    const alreadyLinked = new Set(await this.repo.skillIdsForAgent(agentId));
+    const blocked = found
+      .filter((s) => !alreadyLinked.has(s.id))
+      .map((s) => ({ id: s.id, name: s.name, reasons: detectInjection(s).reasons }))
+      .filter((s) => s.reasons.length > 0);
+    if (blocked.length > 0) {
+      throw new ValidationError(
+        `Skill ${blocked.map((b) => `"${b.name}"`).join(', ')} is blocked: injection detected — fix its text first`,
+        { blocked },
+      );
+    }
   }
 
   /**

@@ -1,0 +1,101 @@
+{
+  "skill_name": "frontend-ui-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need a formatDuration(ms) helper — RunHistory and RunTraceDrawer on the PR detail page both show run durations, and next sprint the /agents/[id] page will need it too. Where should it live right now, and where later? Don't write the whole thing, just tell me the paths and why.",
+      "expected_output": "Now: app/repos/[repoId]/pulls/[number]/helpers.ts (same route, two components). Later, when /agents/[id] uses it: promote to src/lib/format-duration.ts with format-duration.test.ts. No utils.ts. Explains colocate-then-promote.",
+      "files": [],
+      "assertions": [
+        "Places it now in the PR detail route's helpers (app/repos/[repoId]/pulls/[number]/helpers.ts or equivalent route-level file), not in lib/ yet",
+        "Says to promote it to lib/<purpose-named file> (e.g. lib/format-duration.ts) once /agents/[id] needs it",
+        "Mentions a colocated unit test for the helper",
+        "Does not recommend a generic utils.ts / helpers.ts grab-bag in lib/",
+        "Justifies with the colocate-then-promote (second consumer) rule"
+      ],
+      "iteration_added": 1,
+      "note": "non-discriminating in iteration 1 (both configs 100%)"
+    },
+    {
+      "id": 2,
+      "prompt": "client/src/app/repos/[repoId]/pulls/[number]/page.tsx is 185 lines and feels messy. Propose how to split it (folders/files + what moves where). Don't edit files, just give me the plan.",
+      "expected_output": "Thin page.tsx (params + state switch); number→uuid resolution and findings aggregation to pure helpers.ts with tests; hand-built query keys/invalidation (['pr-runs', prId], ['pr-active-runs', prId]) moved into lib/hooks/reviews.ts; URL-state glue into a colocated hook; skeleton/view into _components; justified by mixed responsibilities, not line count; no container/presentational split; no Server Actions/DAL.",
+      "files": [],
+      "assertions": [
+        "Keeps page.tsx as a thin orchestrator (params + state switch + composition)",
+        "Moves pure derivation (number→uuid resolution and/or findings aggregation) into a pure helpers.ts with tests",
+        "Moves hand-built query keys / invalidation (pr-runs, pr-active-runs) out of the page into lib/hooks (reviews)",
+        "Extracts URL-state (?tab / ?trace) glue into a hook",
+        "Puts new view pieces under the route's _components/<Name>/ folders",
+        "Justifies the split by mixed responsibilities rather than line count alone",
+        "Does not propose Server Actions, Route Handlers, a DAL or a container/presentational split"
+      ],
+      "iteration_added": 1,
+      "note": "non-discriminating in iteration 1 (both configs 100%)"
+    },
+    {
+      "id": 3,
+      "prompt": "куди винести OPEN_STATUSES з pulls/page.tsx? і чи варто зробити components/index.ts щоб імпортувати всі shared компоненти з одного місця?",
+      "expected_output": "OPEN_STATUSES → app/repos/[repoId]/pulls/constants.ts (already exists), UPPER_SNAKE + as const. Advises against an aggregating components/index.ts barrel (cycles, whole module graph; TkDodo/Atlassian), keeps per-component one-line index.ts.",
+      "files": [],
+      "assertions": [
+        "Recommends app/repos/[repoId]/pulls/constants.ts for OPEN_STATUSES",
+        "Recommends as const typing (or a derived literal type)",
+        "Advises against an aggregating components/index.ts barrel",
+        "Gives a concrete reason (import cycles / loading whole module graph / tree-shaking or build cost)",
+        "Keeps the existing per-component one-line index.ts convention",
+        "Answers in Ukrainian"
+      ],
+      "iteration_added": 1,
+      "note": "non-discriminating in iteration 1 (both configs 100%)"
+    },
+    {
+      "id": 4,
+      "iteration_added": 2,
+      "prompt": "I'm adding a hook for the PR detail page that reads and writes ?tab and ?trace in the URL (setTab, openTrace, closeTrace). Which file should it go in? Just the path + one-line reason.",
+      "expected_output": "client/src/app/repos/[repoId]/pulls/[number]/use-pr-detail-params.ts (route-private); not lib/hooks — that folder is for API data hooks.",
+      "files": [],
+      "assertions": [
+        "Places the hook inside the PR detail route folder (app/repos/[repoId]/pulls/[number]/...)",
+        "Does not place it in src/lib/hooks/",
+        "Reason mentions that only one route uses it / lib/hooks is for API data hooks"
+      ]
+    },
+    {
+      "id": 5,
+      "iteration_added": 2,
+      "prompt": "formatDuration is used by RunHistory and RunTraceDrawer on the PR page right now. The agents page will need it next sprint, so let's just put it in src/lib/format-duration.ts today and save a move later — agreed?",
+      "expected_output": "Pushes back: keep it in the PR route's helpers.ts now; promote to lib/format-duration.ts in the PR that adds the agents-page import; planned consumer doesn't count.",
+      "files": [],
+      "assertions": [
+        "Recommends keeping it route-level for now (pulls/[number]/helpers.ts or similar), not lib/ today",
+        "States that a planned/future consumer is not a reason to promote yet",
+        "Says to promote to lib/format-duration.ts when the agents page actually imports it"
+      ]
+    },
+    {
+      "id": 6,
+      "iteration_added": 2,
+      "prompt": "We're on the Next.js App Router, so for deleting a review run I'd like to replace useDeleteRun with a Server Action in app/repos/[repoId]/pulls/[number]/actions.ts that calls the Fastify API. Good idea?",
+      "expected_output": "No: the client follows the HTTP-API data model (Fastify backend + TanStack Query); a Server Action adds a second backend path, loses cache invalidation in lib/hooks/reviews.ts, mixes data models. Keep useDeleteRun → api.del.",
+      "files": [],
+      "assertions": [
+        "Recommends against the Server Action / keeping useDeleteRun in lib/hooks",
+        "Explains the client uses the HTTP API (Fastify + TanStack Query) model and shouldn't mix data models",
+        "Mentions cache invalidation / query keys would no longer be owned by lib/hooks/reviews.ts (or equivalent coupling cost)"
+      ]
+    },
+    {
+      "id": 7,
+      "iteration_added": 2,
+      "prompt": "Write the constant for 'open' PR statuses (needs_review, reviewed, stale) for client/src/app/repos/[repoId]/pulls/constants.ts. The page checks membership with p.status. Show the code only.",
+      "expected_output": "export const OPEN_STATUSES: ReadonlySet<PrStatus> = new Set<PrStatus>([...]) importing PrStatus from @/lib/types; not an as-const tuple used with .includes.",
+      "files": [],
+      "assertions": [
+        "Types the constant with the contract type PrStatus (imported from @/lib/types or @devdigest/shared)",
+        "Does not use an `as const` tuple with .includes(p.status) (which fails typecheck)",
+        "Uses the @/ alias rather than a long relative path for the type import"
+      ]
+    }
+  ]
+}

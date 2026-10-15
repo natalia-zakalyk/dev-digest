@@ -11,6 +11,7 @@ import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { GITHUB_PROVIDER, SECRET_KEY_BY_PROVIDER } from './constants.js';
 import { rowsToSettings } from './helpers.js';
+import { redactCredentials } from '../../platform/redact.js';
 
 /**
  * F1 — settings module.
@@ -72,27 +73,33 @@ export default async function settingsRoutes(appBase: FastifyInstance) {
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (req): Promise<ConnTestResult> => {
+    await getContext(container, req);
     const { provider, key } = req.body;
     try {
-      // If the UI supplied a key, persist it (BYO key) before testing so the
-      // test reflects — and the rest of the app can use — the new value.
+      // A UI-supplied key is tested AS A CANDIDATE first and persisted only if
+      // the live call succeeds — a typo must not overwrite a working key.
+      if (key && !container.secrets.set) {
+        return { provider, ok: false, message: 'Secrets backend is read-only' };
+      }
+      let message: string;
+      if (provider === GITHUB_PROVIDER) {
+        const gh = key ? container.githubWithToken(key) : await container.github();
+        const login = await gh.currentLogin();
+        message = `Connected as @${login}`;
+      } else {
+        const llm = key ? container.llmWithKey(provider, key) : await container.llm(provider);
+        const models = await llm.listModels();
+        message = `OK — ${models.length} models available`;
+      }
       if (key) {
-        if (!container.secrets.set) {
-          return { provider, ok: false, message: 'Secrets backend is read-only' };
-        }
-        await container.secrets.set(SECRET_KEY_BY_PROVIDER[provider], key);
+        await container.secrets.set!(SECRET_KEY_BY_PROVIDER[provider], key);
         container.invalidateSecretCaches();
       }
-      if (provider === GITHUB_PROVIDER) {
-        const gh = await container.github();
-        const login = await gh.currentLogin();
-        return { provider, ok: true, message: `Connected as @${login}` };
-      }
-      const llm = await container.llm(provider);
-      const models = await llm.listModels();
-      return { provider, ok: true, message: `OK — ${models.length} models available` };
+      return { provider, ok: true, message };
     } catch (err) {
-      return { provider, ok: false, message: (err as Error).message };
+      // SDKs may reject with non-Errors; redactCredentials needs a string.
+      const msg = err instanceof Error ? err.message : String(err);
+      return { provider, ok: false, message: redactCredentials(msg) };
     }
   });
 }

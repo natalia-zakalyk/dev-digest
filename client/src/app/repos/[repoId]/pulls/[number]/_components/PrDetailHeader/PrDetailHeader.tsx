@@ -1,19 +1,21 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React from "react";
+import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, Button, Tabs } from "@devdigest/ui";
-import { RunReviewDropdown } from "../RunReviewDropdown";
-import { s } from "./styles";
 import type { PrDetail } from "@/lib/types";
+import { RunReviewDropdown } from "../RunReviewDropdown";
+import { isPrDetailTab, type PrDetailTab } from "../../constants";
+import { s } from "./styles";
 
 interface PrDetailHeaderProps {
   pr: PrDetail;
   prId: string | null;
-  tab: string;
+  tab: PrDetailTab;
   findingsCount: number;
   /** github.com PR URL; null when the repo's full_name isn't known yet. */
   githubUrl?: string | null;
-  onSetTab: (tab: string) => void;
+  onSetTab: (tab: PrDetailTab) => void;
   onRunStart: () => void;
   onRunsStarted: () => void;
 }
@@ -28,14 +30,7 @@ export function PrDetailHeader({
   onRunStart,
   onRunsStarted,
 }: PrDetailHeaderProps) {
-  const handleRunStart = useCallback(() => {
-    onRunStart();
-  }, [onRunStart]);
-
-  const handleRunsStarted = useCallback(() => {
-    onRunsStarted();
-  }, [onRunsStarted]);
-
+  const t = useTranslations("prReview");
   const statusColor =
     pr.status === "merged"
       ? "var(--ok)"
@@ -87,14 +82,14 @@ export function PrDetailHeader({
               githubUrl && window.open(githubUrl, "_blank", "noopener,noreferrer")
             }
           >
-            View on GitHub
+            {t("detail.viewOnGithub")}
           </Button>
           {prId && (
             <RunReviewDropdown
               prId={prId}
               warnMerged={pr.status === "merged" || pr.status === "closed"}
-              onRunStart={handleRunStart}
-              onRunsStarted={handleRunsStarted}
+              onRunStart={onRunStart}
+              onRunsStarted={onRunsStarted}
             />
           )}
         </div>
@@ -102,20 +97,24 @@ export function PrDetailHeader({
       {(pr.status === "merged" || pr.status === "closed") && (
         <div style={s.staleBanner}>
           <Icon.AlertTriangle size={13} style={{ color: "var(--warn)", flexShrink: 0 }} />
-          <span>
-            This PR is already {pr.status} — running a review is informational and won't affect the
-            merged code.
-          </span>
+          <span>{t("detail.staleBanner", { status: pr.status })}</span>
         </div>
       )}
       <Tabs
         value={tab}
-        onChange={onSetTab}
+        onChange={(key) => {
+          if (isPrDetailTab(key)) onSetTab(key);
+        }}
         pad="0"
         tabs={[
-          { key: "overview", label: "Overview", icon: "FileText" },
-          { key: "findings", label: "Agent runs", icon: "AlertOctagon", count: findingsCount || undefined },
-          { key: "diff", label: "Files changed", icon: "Code", count: pr.files_count },
+          { key: "overview", label: t("detail.tabs.overview"), icon: "FileText" },
+          {
+            key: "findings",
+            label: t("detail.tabs.findings"),
+            icon: "AlertOctagon",
+            count: findingsCount || undefined,
+          },
+          { key: "diff", label: t("detail.tabs.diff"), icon: "Code", count: pr.files_count },
         ]}
       />
     </div>
