@@ -17,7 +17,7 @@ import { LocalNoAuthProvider } from '../adapters/auth/local.js';
 import { OctokitGitHubClient } from '../adapters/github/octokit.js';
 import { SimpleGitClient } from '../adapters/git/simple-git.js';
 import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
-import { SafeHttpsFetcher } from '../adapters/urlfetch/index.js';
+import { SafeHttpsFetcher, DOC_FETCHER_OPTIONS } from '../adapters/urlfetch/index.js';
 import { OpenAIProvider } from '../adapters/llm/openai.js';
 import { AnthropicProvider } from '../adapters/llm/anthropic.js';
 import { OpenAIEmbedder } from '../adapters/embedder/openai.js';
@@ -55,6 +55,8 @@ export interface ContainerOverrides {
   tokenizer?: Tokenizer;
   /** Skill import by URL (GitHub hosts only) — tests inject MockUrlFetcher. */
   urlFetcher?: UrlFetcher;
+  /** Linked plan/spec docs for the intent layer; falls back to `urlFetcher` override in tests. */
+  docFetcher?: UrlFetcher;
   /** Run event bus (defaults to the process-wide singleton). */
   runBus?: RunBus;
 }
@@ -82,6 +84,7 @@ export class Container {
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _urlFetcher?: UrlFetcher;
+  private _docFetcher?: UrlFetcher;
   private _priceBook?: PriceBook;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
@@ -137,6 +140,14 @@ export class Container {
     if (this.overrides.urlFetcher) return this.overrides.urlFetcher;
     this._urlFetcher ??= new SafeHttpsFetcher();
     return this._urlFetcher;
+  }
+
+  /** Downloads a PR-linked text doc (intent layer): same hosts, text only, 256 KB cap. */
+  get docFetcher(): UrlFetcher {
+    if (this.overrides.docFetcher) return this.overrides.docFetcher;
+    if (this.overrides.urlFetcher) return this.overrides.urlFetcher;
+    this._docFetcher ??= new SafeHttpsFetcher(DOC_FETCHER_OPTIONS);
+    return this._docFetcher;
   }
 
   get tokenizer(): Tokenizer {

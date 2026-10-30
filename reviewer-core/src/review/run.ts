@@ -3,11 +3,12 @@ import type {
   LLMProvider,
   PromptAssembly,
   Review,
+  ReviewIntent,
   RunEventKind,
   UnifiedDiff,
 } from '@devdigest/shared';
 import { Review as ReviewSchema } from '@devdigest/shared';
-import { assemblePrompt } from '../prompt.js';
+import { assemblePrompt, type PromptMeasure, type PromptSectionMeta } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
 
@@ -19,7 +20,7 @@ import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
  * This is the pure core lifted out of the server's `ReviewService.runOneAgent`:
  * assemble prompt → single-pass OR map-reduce per file → reduce → SHARED
  * citation-grounding gate. It performs NO I/O beyond the injected LLM provider
- * (no DB, GitHub, fs, memory retrieval, intent, or persistence) — those stay in
+ * (no DB, GitHub, fs, memory retrieval, or persistence; intent is DERIVED by the caller) — those stay in
  * the caller (server persists + streams SSE; runner posts + writes an artifact).
  *
  * Skill bodies / memory / specs are RESOLVED strings here: the caller turns
@@ -46,6 +47,19 @@ export interface ReviewEvent {
   kind: RunEventKind;
   msg: string;
   data?: unknown;
+}
+
+/**
+ * Metadata-only description of one assembled prompt, emitted right before its LLM call.
+ * Carries sizes/flags per section, never any prompt text.
+ */
+export interface PromptAssembledEvent {
+  chunkIndex: number;
+  chunkCount: number;
+  /** File path (map-reduce) or 'all files' (single-pass). */
+  label: string;
+  mode: ReviewMode;
+  sections: PromptSectionMeta[];
 }
 
 export interface ReviewInput {
@@ -78,6 +92,8 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /** Derived PR intent (computed by the caller; untrusted, wrapped in every chunk's prompt). */
+  intent?: ReviewIntent;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -91,6 +107,13 @@ export interface ReviewInput {
    * review group into one session in the OpenRouter dashboard.
    */
   sessionId?: string;
+  /** Injected pure measuring function (token estimate, optional hash) for prompt metadata. */
+  measure?: PromptMeasure;
+  /**
+   * Called once per chunk, after the prompt is assembled and BEFORE the LLM call, with
+   * metadata only (section sizes/flags, no text). Lets the caller log prompt composition.
+   */
+  onPromptAssembled?: (e: PromptAssembledEvent) => void;
   /** Progress sink. */
   onEvent?: (e: ReviewEvent) => void;
   /**
@@ -150,6 +173,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
 
@@ -174,7 +198,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   let costUsd: number | null = 0;
   const raws: string[] = [];
 
-  for (const chunk of chunks) {
+  for (const [chunkIndex, chunk] of chunks.entries()) {
     // Cancellation checkpoint — stop before the next (expensive) LLM call.
     input.checkCancelled?.();
     // 'map:' prefix only for the map-reduce path (one call per file). In
@@ -184,8 +208,15 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
       mode === 'map-reduce' ? `map: reviewing ${chunk.label}` : `Reviewing ${chunk.label} in one pass`,
       { file: chunk.label },
     );
-    const a = assemblePrompt({ ...promptParts, diff: chunk.diffText });
+    const a = assemblePrompt({ ...promptParts, diff: chunk.diffText }, input.measure ? { measure: input.measure } : {});
     if (mode === 'single-pass') assembly = a.assembly;
+    input.onPromptAssembled?.({
+      chunkIndex,
+      chunkCount: chunks.length,
+      label: chunk.label,
+      mode,
+      sections: a.sections,
+    });
     const res = await input.llm.completeStructured<Review>({
       model: input.model,
       schema: ReviewSchema,

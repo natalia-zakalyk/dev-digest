@@ -79,7 +79,7 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 
 | Tab label | `?tab` | Content |
 |---|---|---|
-| Overview | `overview` | PR description (`OverviewTab`); nothing if body is empty |
+| Overview | `overview` | Intent card (full width, see [intent-layer.md](intent-layer.md)) + PR description (`OverviewTab`); description hidden if body is empty |
 | Agent runs (count = total findings) | `findings` | `FindingsTab`, see below |
 | Files changed (count = files) | `diff` | `DiffTab`: `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden by default with Show/Hide toggle; commenting only when `pr.status === "open"` |
 

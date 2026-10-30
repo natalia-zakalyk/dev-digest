@@ -2,7 +2,8 @@ import type { RunEventKind, RunLogLine } from '@devdigest/shared';
 import type { RunBus } from './sse.js';
 
 /**
- * Structured run logger — the SINGLE sink for everything a run does.
+ * Structured run logger — the single sink for everything a run does (one deliberate
+ * exception: `ops()`, below).
  *
  * Every operation in a review run (load diff, derive intent, embed + retrieve
  * memory, load skills/specs, each model call, grounding, persistence) goes
@@ -11,6 +12,10 @@ import type { RunBus } from './sse.js';
  *   2. captured in the run's event buffer → persisted as the run_traces.log doc
  *      (survives reload), and
  *   3. mirrored to the server's structured stdout logger (pino) for ops.
+ *
+ * `ops()` is the exception: it writes ONLY to the pino stdout logger, never to the bus
+ * (so not to SSE and not to run_traces.log). Use it for operator-facing metadata records
+ * that must stay out of the browser stream and the persisted trace (prompt-assembly log).
  *
  * A run logger can target ONE run (the usual case) or FAN OUT to several runIds
  * at once — used for shared pre-work (diff/intent) that happens before the
@@ -50,6 +55,14 @@ export class RunLogger {
   event(kind: RunEventKind, msg: string, data?: unknown): void {
     for (const runId of this.runIds) this.bus.publish(runId, kind, msg, data);
     this.base?.[LEVEL[kind]]({ ...this.ctx, runIds: this.runIds, kind, ...(data !== undefined ? { data } : {}) }, msg);
+  }
+
+  /**
+   * Ops-only record: pino stdout at `info`, with run context. Publishes NOTHING to the
+   * bus, so it reaches neither the Live Log (SSE) nor the persisted `run_traces.log`.
+   */
+  ops(msg: string, record: object): void {
+    this.base?.info({ ...this.ctx, runIds: this.runIds, ...record }, msg);
   }
 
   info(msg: string, data?: unknown): void {

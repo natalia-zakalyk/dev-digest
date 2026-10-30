@@ -57,6 +57,8 @@ flowchart LR
 - Modules are registered statically in `src/modules/index.ts` (one import + one
   `app.register` each); the engine reaps orphaned `running` runs on boot.
 
+**Outbound calls — linked docs (intent layer).** Besides GitHub's API and the LLM providers, the intent step may fetch a PR-linked `.md/.markdown/.txt` doc from `raw.githubusercontent.com`, `gist.githubusercontent.com` or `github.com` only (same safety rules as skill import, 256 KB cap). Same-repo docs are read locally with `git show <head>:<path>`. See [specs/intent-layer.md](specs/intent-layer.md).
+
 ## API map (starter)
 
 Each module owns its routes (`modules/<name>/routes.ts`). Grouped by domain:
@@ -69,6 +71,7 @@ flowchart TB
     polling["polling<br/>/repos/:id/poll"]
   end
   subgraph Review["Review & runs"]
+    intent["intent<br/>/pulls/:id/intent (GET · POST)"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
   end
   subgraph Agents["Agents"]
@@ -106,6 +109,7 @@ PR-list rollups (`GET /repos/:id/pulls`, computed on read in `modules/pulls/stat
 | `REPO_INTEL_ENABLED` | `true` | repo skeleton + callers in the prompt; `false` → ripgrep-only |
 | `DEVDIGEST_CLONE_DIR` | `./clones` | imported-repo checkouts (git-ignored) |
 | `LOG_LEVEL` | `info` (`silent` in test) | pino level |
+| `PROMPT_LOG_VERBOSE` / `PROMPT_LOG_HASHES` | unset | request item-level prompt-log metadata / 12-hex content hashes; honored only with `NODE_ENV=development` on a loopback `API_HOST`, otherwise ignored with a startup warning |
 | `NODE_ENV` | `development` | `test` → silent logs + global rate-limit disabled |
 
 Secrets (API keys, `GITHUB_TOKEN`) are **not** part of `AppConfig` — they go
@@ -155,3 +159,12 @@ hermetic:
 
 A DB-backed test (one that imports `test/helpers/pg.ts`) **must** use the
 `*.it.test.ts` suffix so the split stays correct. See [`../TESTING.md`](../TESTING.md).
+
+## Observability: prompt-assembly log
+
+Every prompt sent to a model (each review chunk and the intent classifier) writes one metadata-only
+`prompt.assembled` record to stdout (pino): section names, sources, chars, estimated tokens, flags, provider/model
+and a per-trigger `correlation_id`. Never prompt text, and it never goes to SSE or `run_traces.log`. This is not the
+run trace: `run_traces.prompt_assembly` keeps the full prompt for debugging, the ops log keeps sizes only.
+`PROMPT_LOG_VERBOSE` / `PROMPT_LOG_HASHES` add per-item metadata (local development only). Spec:
+[specs/prompt-assembly-logging.md](specs/prompt-assembly-logging.md).

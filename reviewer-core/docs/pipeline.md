@@ -46,7 +46,8 @@ map-reduce → one chunk per file, `label = file.path`, text from `sliceDiff`.
 **Per-chunk loop** (`run.ts:167-194`), strictly sequential:
 1. `input.checkCancelled?.()` — caller-supplied; if it throws, the run aborts before the LLM call.
 2. Emit a `tool` event (`map: reviewing <file>` or `Reviewing all files in one pass`).
-3. `assemblePrompt({...promptParts, diff: chunk.diffText})`.
+3. `assemblePrompt({...promptParts, diff: chunk.diffText}, { measure })`, then `input.onPromptAssembled?.({ chunkIndex, chunkCount, label, mode, sections })`
+   BEFORE the LLM call. Metadata only (sizes/flags, never text); the caller logs it. The whole-diff trace assembly gets no `measure` and fires no event.
 4. `input.llm.completeStructured<Review>({ model, schema: ReviewSchema, schemaName: 'Review', messages, maxRetries, maxTokens, sessionId? })`.
    `sessionId` is forwarded on every call when set (OpenRouter session grouping).
 5. Accumulate tokens/cost, call `onUsage`, push raw + partial, emit a `result` event.
@@ -74,7 +75,10 @@ The server bridges these onto SSE via `runLog.event` (`server/src/modules/review
 
 ## 3. Prompt assembly — `src/prompt.ts`
 
-`assemblePrompt(parts)` returns `{ messages: [system, user], assembly }`.
+`assemblePrompt(parts, { measure? })` returns `{ messages: [system, user], assembly, sections }`. `sections` is
+per-section metadata in prompt order (present sections only): `name`, fixed `source`/`trust`/`wrapped`, `chars` of the rendered
+section, `tokens` (from the injected pure `measure`, else null), `items`, `truncated` (PR description > 4000, intent > 1200) and
+`itemsMeta` (per skill/spec/memory item: chars/tokens/optional hash). No text. `messages`/`assembly` are identical with or without `measure`.
 
 - **System message** = `parts.system + "\n\n" + INJECTION_GUARD` (`prompt.ts:86`). The guard
   (`prompt.ts:16-28`) is a trusted rule: everything inside `<untrusted>…</untrusted>` is data;
@@ -86,12 +90,13 @@ The server bridges these onto SSE via `runLog.event` (`server/src/modules/review
 |---|---|---|---|
 | 1 | task line (no heading) | `task` | no |
 | 2 | `## PR description` | `prDescription`, trimmed-empty → omitted, sliced to **4000 chars** | yes, `pr-description` |
-| 3 | `## Skills / rules` | `skills[]` joined `\n\n` | no (trusted-ish) |
-| 4 | `## Relevant memory` | `memory[]` as `- item` bullets | no (curated) |
-| 5 | `## Repo skeleton` | `repoMap` (whitespace-only → omitted) | yes, `repo-map` |
-| 6 | `## Project context` | `specs[]`, each wrapped `spec-<i>` | yes |
-| 7 | `## Callers of changed symbols` | `callers` (whitespace-only → omitted) | yes, `callers` |
-| 8 | `## Diff to review` | `diff` (always present, always last) | yes, `diff` |
+| 3 | `## PR intent (derived)` | `intent` (`ReviewIntent`, derived by the caller), rendered text capped at **1200 chars**; a trusted rule line precedes it (plus a weak-hint note when `confidence` is `low`) | yes, `pr-intent` |
+| 4 | `## Skills / rules` | `skills[]` joined `\n\n` | no (trusted-ish) |
+| 5 | `## Relevant memory` | `memory[]` as `- item` bullets | no (curated) |
+| 6 | `## Repo skeleton` | `repoMap` (whitespace-only → omitted) | yes, `repo-map` |
+| 7 | `## Project context` | `specs[]`, each wrapped `spec-<i>` | yes |
+| 8 | `## Callers of changed symbols` | `callers` (whitespace-only → omitted) | yes, `callers` |
+| 9 | `## Diff to review` | `diff` (always present, always last) | yes, `diff` |
 
 - `wrapUntrusted(label, content)` (`prompt.ts:30`) produces
   `<untrusted source="label">\n…\n</untrusted>` and defangs every opening/closing `untrusted` tag
@@ -99,8 +104,8 @@ The server bridges these onto SSE via `runLog.event` (`server/src/modules/review
   `< / untrusted>`, `<untrusted foo>`) — by rewriting the leading `<` to `<\`, so the content can
   neither close nor forge the fence.
 - `assembly` (shared `PromptAssembly`) records `system`, `skills`, `memory`, `specs`, `callers`,
-  `repo_map`, `pr_description` (null when absent) and the full `user` string, for the run trace.
-- In the starter the server only fills `task`, `prDescription`, `callers`, `repoMap`
+  `repo_map`, `pr_description`, `intent` (null when absent) and the full `user` string, for the run trace.
+- In the starter the server fills `task`, `prDescription`, `intent`, `callers`, `repoMap`, `skills`
   (`run-executor.ts:197-214`); `skills`, `memory`, `specs` are left empty for lessons.
 
 ## 4. The injected `LLMProvider`

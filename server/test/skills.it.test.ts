@@ -7,7 +7,7 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
-import { MockEmbedder, MockGitClient, MockLLMProvider, MockUrlFetcher } from '../src/adapters/mocks.js';
+import { MockEmbedder, MockGitClient, MockLLMProvider, MockSecretsProvider, MockUrlFetcher } from '../src/adapters/mocks.js';
 import type { Review } from '@devdigest/shared';
 
 const hasDocker = await dockerAvailable();
@@ -44,6 +44,19 @@ d('skills (Testcontainers pg)', () => {
     await pg?.stop();
   });
 
+  const INTENT_FIXTURE = {
+    intent: 'Adds rate limiting to the API.',
+    in_scope: ['api'],
+    out_of_scope: [],
+    risk_areas: [],
+    confidence: 'low',
+  };
+  const mockLlm = (id: 'openai' | 'anthropic') =>
+    new MockLLMProvider(id, {
+      structured: EMPTY_REVIEW,
+      structuredBySchema: { Review: EMPTY_REVIEW, IntentClassification: INTENT_FIXTURE },
+    });
+
   function makeApp(extra: { urlFetcher?: MockUrlFetcher } = {}) {
     return buildApp({
       config: config(),
@@ -51,7 +64,14 @@ d('skills (Testcontainers pg)', () => {
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
-        llm: { openai: new MockLLMProvider('openai', { structured: EMPTY_REVIEW }) },
+        // Fully offline: no real secrets, and every provider a run can resolve (incl. openrouter, the
+        // default for the `review_intent` step) is a mock answering both schemas.
+        secrets: new MockSecretsProvider(),
+        llm: {
+          openai: mockLlm('openai'),
+          anthropic: mockLlm('anthropic'),
+          openrouter: mockLlm('openai'),
+        },
         ...extra,
       },
     });

@@ -15,15 +15,23 @@ export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
 /** Extensions a skill file may have (the importer reads `.md` or a zip with `SKILL.md`). */
 export const ALLOWED_EXTENSIONS = ['.md', '.markdown', '.zip'] as const;
 
-const reject = (why: string): never => {
-  throw new ValidationError(`Skill URL rejected: ${why}`);
-};
+export interface GithubContentUrlOptions {
+  /** Allowed (lower-case) path extensions. */
+  extensions: readonly string[];
+  /** Prefix for the rejection messages, e.g. "Skill URL". */
+  label: string;
+  /** Tail of the "bad extension" message, e.g. "only .md or .zip files can be imported". */
+  extensionMessage: string;
+}
 
 /**
- * Validate a user-supplied skill URL and return the URL to actually request.
+ * Validate a URL against the GitHub content-host allowlist and return the URL to actually request.
  * `github.com/<o>/<r>/blob|raw/<ref>/<path>` is rewritten to `raw.githubusercontent.com/<o>/<r>/<ref>/<path>`.
  */
-export function validateSkillUrl(input: string): URL {
+export function validateGithubContentUrl(input: string, opts: GithubContentUrlOptions): URL {
+  const reject = (why: string): never => {
+    throw new ValidationError(`${opts.label} rejected: ${why}`);
+  };
   let url: URL;
   try {
     url = new URL(input.trim());
@@ -54,10 +62,31 @@ export function validateSkillUrl(input: string): URL {
     // A malformed %-escape (e.g. "%zz") parses as a URL but cannot be decoded — a 422, not a 500.
     return reject('the path contains an invalid %-escape');
   }
-  if (!ALLOWED_EXTENSIONS.some((ext) => path.endsWith(ext))) {
-    reject('only .md or .zip files can be imported');
+  if (!opts.extensions.some((ext) => path.endsWith(ext))) {
+    reject(opts.extensionMessage);
   }
   return target;
+}
+
+/** Validate a user-supplied skill URL (see `validateGithubContentUrl`). */
+export function validateSkillUrl(input: string): URL {
+  return validateGithubContentUrl(input, {
+    extensions: ALLOWED_EXTENSIONS,
+    label: 'Skill URL',
+    extensionMessage: 'only .md or .zip files can be imported',
+  });
+}
+
+/** Extensions a linked plan/spec doc may have (intent layer). */
+export const DOC_EXTENSIONS = ['.md', '.markdown', '.txt'] as const;
+
+/** Validate a PR-linked document URL (intent layer): same hosts and rules, text docs only. */
+export function validateDocUrl(input: string): URL {
+  return validateGithubContentUrl(input, {
+    extensions: DOC_EXTENSIONS,
+    label: 'Doc URL',
+    extensionMessage: 'only .md, .markdown or .txt documents can be fetched',
+  });
 }
 
 /** Private / loopback / link-local / unspecified addresses (IPv4 + IPv6). */

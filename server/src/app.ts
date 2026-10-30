@@ -110,6 +110,21 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
           },
   });
 
+  // Verbose prompt logging is local-development only: always say so at boot, in both the
+  // honored and the requested-but-refused case.
+  const promptLog = config.promptLog;
+  if (promptLog?.verbose) {
+    app.log.warn(
+      { promptLog: { verbose: promptLog.verbose, hashes: promptLog.hashes } },
+      'prompt-assembly verbose logging ON (local only, metadata only)',
+    );
+  } else if (promptLog?.requested) {
+    app.log.warn(
+      { reason: promptLog.ignored ?? 'verbose_not_requested' },
+      'PROMPT_LOG_VERBOSE ignored: only honored with NODE_ENV=development on a loopback API_HOST',
+    );
+  }
+
   // Use zod schemas directly for request validation + response serialization.
   // Routes opt in per-module via `app.withTypeProvider<ZodTypeProvider>()`.
   app.setValidatorCompiler(validatorCompiler);

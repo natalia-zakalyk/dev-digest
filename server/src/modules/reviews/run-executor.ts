@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, SkillUsed, UnifiedDiff } from '@devdigest/shared';
-import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
+import type { Provider, Review, ReviewIntent, RunIntentInfo, RunTrace, SkillUsed, UnifiedDiff } from '@devdigest/shared';
+import { reviewPullRequest, countBlockers, type PromptMeasure, type PromptAssembledEvent } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
+import { buildPromptLogRecord, summarizePromptLog } from '../../platform/prompt-log.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
@@ -9,6 +11,7 @@ import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import { detectInjection, formatSkillBlock } from '../skills/index.js';
+import { createIntentService, renderableIntent, type ClassifierPromptMeta } from '../intent/index.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -30,6 +33,9 @@ export type Logger = {
 // Review per file; we merge findings + take the worst verdict / mean score).
 /** Token/cost totals reported by the engine's `onUsage` (running, per chunk). */
 type RunUsage = { tokensIn: number; tokensOut: number; costUsd: number | null };
+
+/** Result of the shared intent step: what the reviewers see + what the trace records. */
+type DerivedIntent = { review: ReviewIntent; info: RunIntentInfo };
 
 export type RunOutcome = {
   review: ReviewRow;
@@ -62,7 +68,9 @@ export class ReviewRunExecutor {
     repo: typeof schema.repos.$inferSelect,
     jobs: { agent: AgentRow; runId: string }[],
     logger?: Logger,
+    opts: { correlationId?: string } = {},
   ): Promise<void> {
+    const correlationId = opts.correlationId ?? 'unknown';
     // ONE logger fanned out over every queued run: shared pre-work (diff +
     // intent) is streamed into each target agent's Live Log and persisted into
     // each run's trace. Per-agent work below narrows it to a single run.
@@ -70,7 +78,7 @@ export class ReviewRunExecutor {
       this.container.runBus,
       jobs.map((j) => j.runId),
       logger,
-      { prId: pull.id },
+      { prId: pull.id, correlationId },
     );
 
     // Pre-work failure (e.g. diff load) fails EVERY queued run. The error was
@@ -109,17 +117,22 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Shared pre-work, once per trigger: derive the PR's intent (cheap model). Best-effort —
+    // any error means "no intent", never a failed run.
+    const derived = await this.deriveIntent(workspaceId, pull, runLog, correlationId, jobs.map((j) => j.runId));
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
-        { runId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
+        { runId, correlationId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, correlationId, derived);
         logger?.info(
           {
             runId,
+            correlationId,
             agent: agent.name,
             findings: outcome.findings.length,
             grounding: outcome.grounding,
@@ -132,10 +145,133 @@ export class ReviewRunExecutor {
         // trace) and completed the bus; here we only log at the run level.
         const cancelled = err instanceof RunCancelledError;
         logger?.[cancelled ? 'info' : 'error'](
-          { runId, agent: agent.name, err: (err as Error).message, durationMs: Date.now() - agentStart },
+          { runId, correlationId, agent: agent.name, err: (err as Error).message, durationMs: Date.now() - agentStart },
           `review: agent "${agent.name}" ${cancelled ? 'cancelled' : 'failed'}`,
         );
       }
+    }
+  }
+
+  /**
+   * Derive the PR intent once for all queued runs (fan-out logger → every Live Log shows it).
+   * Never throws: on any error it logs and returns undefined so the reviews run without intent.
+   */
+  private async deriveIntent(
+    workspaceId: string,
+    pull: PullRow,
+    runLog: RunLogger,
+    correlationId: string,
+    runIds: string[],
+  ): Promise<DerivedIntent | undefined> {
+    try {
+      const service = createIntentService(this.container);
+      const r = await runLog.step(
+        'Deriving PR intent',
+        () =>
+          service.derive(workspaceId, pull.id, {
+            log: runLog,
+            onClassifierPrompt: (meta) => this.logClassifierPrompt(runLog, pull, correlationId, runIds, meta),
+          }),
+        { kind: 'tool' },
+      );
+      const s = r.stored;
+      return {
+        review: renderableIntent(s),
+        info: {
+          method: s.method,
+          confidence: s.confidence,
+          cached: r.cached,
+          provider: s.provider,
+          model: s.model,
+          // A cache hit cost nothing this run.
+          tokens_in: r.cached ? 0 : s.tokensIn,
+          tokens_out: r.cached ? 0 : s.tokensOut,
+          cost_usd: r.cached ? null : s.costUsd,
+        },
+      };
+    } catch (err) {
+      runLog.info(`intent: unavailable — ${(err as Error).message}; reviewing without it`);
+      return undefined;
+    }
+  }
+
+  /**
+   * Pure measuring function injected into reviewer-core: token estimate, plus a short
+   * content hash only when hashes are effective (local development, verbose mode).
+   */
+  private promptMeasure(): PromptMeasure {
+    const hashes = this.container.config.promptLog.hashes;
+    return (text) => ({
+      tokens: this.container.tokenizer.count(text),
+      ...(hashes ? { hash: createHash('sha256').update(text).digest('hex').slice(0, 12) } : {}),
+    });
+  }
+
+  /**
+   * Prompt-assembly log for one review call (before the LLM call). The full record goes to
+   * pino stdout only (`ops`); the Live Log gets a counts-only summary line. Never throws.
+   */
+  private logReviewPrompt(
+    runLog: RunLogger,
+    pull: PullRow,
+    agent: AgentRow,
+    runId: string,
+    correlationId: string,
+    skillsUsed: SkillUsed[],
+    e: PromptAssembledEvent,
+  ): void {
+    try {
+      const { verbose, hashes } = this.container.config.promptLog;
+      const record = buildPromptLogRecord({
+        call: 'review',
+        correlationId,
+        runId,
+        agentId: agent.id,
+        prId: pull.id,
+        provider: agent.provider,
+        model: agent.model,
+        mode: e.mode,
+        chunk: { index: e.chunkIndex, count: e.chunkCount, label: e.label },
+        sections: e.sections,
+        verbose,
+        hashes,
+        itemRefs: { skills: skillsUsed.map((u) => `${u.name}@v${u.version} (${u.id})`) },
+      });
+      runLog.ops('prompt assembled', record);
+      runLog.info(summarizePromptLog(record));
+    } catch {
+      runLog.ops('prompt log failed', { event: 'prompt.log_failed', runId });
+    }
+  }
+
+  /** Prompt-assembly log for the intent classifier call (stdout only; shared by every run of the trigger). */
+  private logClassifierPrompt(
+    runLog: RunLogger,
+    pull: PullRow,
+    correlationId: string,
+    runIds: string[],
+    meta: ClassifierPromptMeta,
+  ): void {
+    try {
+      const { verbose, hashes } = this.container.config.promptLog;
+      const record = buildPromptLogRecord({
+        call: 'intent_classifier',
+        correlationId,
+        runId: null,
+        runIds,
+        agentId: null,
+        prId: pull.id,
+        provider: meta.provider,
+        model: meta.model,
+        mode: null,
+        chunk: { index: 0, count: 1, label: null },
+        sections: meta.sections,
+        verbose,
+        hashes,
+      });
+      runLog.ops('prompt assembled', record);
+    } catch {
+      runLog.ops('prompt log failed', { event: 'prompt.log_failed', call: 'intent_classifier' });
     }
   }
 
@@ -148,6 +284,8 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    correlationId: string,
+    derived?: DerivedIntent,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -216,7 +354,11 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Derived PR intent (untrusted; wrapped by assemblePrompt). Omitted when derivation failed.
+        ...(derived ? { intent: derived.review } : {}),
         task,
+        measure: this.promptMeasure(),
+        onPromptAssembled: (e) => this.logReviewPrompt(runLog, pull, agent, runId, correlationId, skills.used, e),
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
         onUsage: (u) => {
@@ -282,6 +424,7 @@ export class ReviewRunExecutor {
           pr: pull.number,
           source: 'local',
         },
+        ...(derived ? { intent: derived.info } : {}),
         stats: {
           duration_ms: durationMs,
           tokens_in: tokensIn,
@@ -340,7 +483,7 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, usage))
+        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, usage, derived?.info))
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
@@ -478,8 +621,10 @@ export class ReviewRunExecutor {
     grounding: string,
     durationMs = 0,
     usage: RunUsage = { tokensIn: 0, tokensOut: 0, costUsd: null },
+    intent?: RunIntentInfo,
   ): RunTrace {
     return {
+      ...(intent ? { intent } : {}),
       config: {
         agent: agent.name,
         version: String(agent.version),

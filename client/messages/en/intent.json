@@ -1,0 +1,35 @@
+{
+  "title": "Intent",
+  "inScope": "In scope",
+  "outOfScope": "Out of scope",
+  "riskAreas": "Risk areas",
+  "noneExplicit": "Nothing explicitly excluded.",
+  "confidence": {
+    "label": "Confidence: {level}",
+    "high": "high",
+    "medium": "medium",
+    "low": "low"
+  },
+  "lowConfidenceHint": "Low confidence: inferred from branch, commits and files",
+  "stale": "The PR head moved since this intent was derived.",
+  "refresh": "Refresh",
+  "derive": "Derive intent",
+  "deriving": "Deriving…",
+  "loading": "Loading intent…",
+  "loadError": "Could not load the intent.",
+  "empty": "No intent derived yet. It is derived automatically before each review, or you can derive it now.",
+  "fallback": "Fallback (no model): built from the title, branch and file paths.",
+  "sourcesLabel": "From",
+  "sources": {
+    "title": "title",
+    "description": "description",
+    "linkedIssue": "issue {ref}",
+    "linkedDoc": "{ref}",
+    "branch": "branch",
+    "commits": "commits",
+    "filePaths": "file paths",
+    "diffStats": "diff stats",
+    "priorPrs": "prior PRs"
+  },
+  "generatedBy": "{model} · {date}"
+}

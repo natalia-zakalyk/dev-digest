@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IntentConfidence, IntentMethod } from './brief.js';
 
 /**
  * Run trace. The ENTIRE trace of one run is persisted as a SINGLE
@@ -59,6 +60,8 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** Rendered derived PR intent (as injected into the prompt); null when absent. */
+  intent: z.string().nullish(),
   user: z.string(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;
@@ -81,6 +84,19 @@ export const RunStats = z.object({
 export type RunStats = z.infer<typeof RunStats>;
 
 /** The single-document trace stored in `run_traces.trace`. */
+/** How the shared pre-review intent step went for this run (nullish: old traces lack it). */
+export const RunIntentInfo = z.object({
+  method: IntentMethod,
+  confidence: IntentConfidence,
+  cached: z.boolean(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  tokens_in: z.number().int(),
+  tokens_out: z.number().int(),
+  cost_usd: z.number().nullable(),
+});
+export type RunIntentInfo = z.infer<typeof RunIntentInfo>;
+
 export const RunTrace = z.object({
   config: z.object({
     agent: z.string(),
@@ -91,6 +107,7 @@ export const RunTrace = z.object({
     source: z.enum(['local', 'ci']).default('local'),
   }),
   stats: RunStats,
+  intent: RunIntentInfo.nullish(),
   prompt_assembly: PromptAssembly,
   tool_calls: z.array(ToolCall),
   raw_output: z.string(),

@@ -1,0 +1,55 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  quote: {
+    margin: 0,
+    padding: "2px 0 2px 14px",
+    borderLeft: "3px solid var(--accent)",
+    fontSize: 15,
+    lineHeight: 1.55,
+    color: "var(--text-primary)",
+  } satisfies CSSProperties,
+  lists: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: 18,
+    marginTop: 16,
+  } satisfies CSSProperties,
+  listLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    marginBottom: 6,
+  } satisfies CSSProperties,
+  list: {
+    margin: 0,
+    paddingLeft: 18,
+    fontSize: 13.5,
+    lineHeight: 1.55,
+    color: "var(--text-secondary)",
+  } satisfies CSSProperties,
+  muted: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  chips: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 } satisfies CSSProperties,
+  notice: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 14,
+    fontSize: 13,
+    color: "var(--warn)",
+  } satisfies CSSProperties,
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTop: "1px solid var(--border)",
+    fontSize: 12,
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+} as const;
