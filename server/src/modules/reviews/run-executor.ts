@@ -201,10 +201,16 @@ export class ReviewRunExecutor {
    */
   private promptMeasure(): PromptMeasure {
     const hashes = this.container.config.promptLog.hashes;
-    return (text) => ({
-      tokens: this.container.tokenizer.count(text),
-      ...(hashes ? { hash: createHash('sha256').update(text).digest('hex').slice(0, 12) } : {}),
-    });
+    return (text) => {
+      try {
+        return {
+          tokens: this.container.tokenizer.count(text),
+          ...(hashes ? { hash: createHash('sha256').update(text).digest('hex').slice(0, 12) } : {}),
+        };
+      } catch {
+        return { tokens: null }; // logging aid only: never let it fail the review
+      }
+    };
   }
 
   /**

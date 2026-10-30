@@ -38,6 +38,7 @@ export interface ClassifierInput {
 export type ClassifierSectionName =
   | 'system'
   | 'header'
+  | 'pr_title'
   | 'pr_description'
   | 'linked_issue'
   | 'linked_doc'
@@ -96,11 +97,18 @@ export function buildClassifierPrompt(
   budget: number = INPUT_BUDGET_TOKENS,
 ): { messages: ChatMessage[]; sections: ClassifierSectionMeta[] } {
   const { pull, files, commitSubjects } = input.inputs;
-  const header =
-    `PR #${pull.number}: ${pull.title}\nBranch: ${pull.branch} → ${pull.base}\n` +
-    `Stats: ${pull.filesCount} file(s), +${pull.additions} −${pull.deletions}`;
+  // Author-controlled title and branch names are untrusted: keep only numbers in the trusted header.
+  const header = `PR #${pull.number}\nStats: ${pull.filesCount} file(s), +${pull.additions} −${pull.deletions}`;
 
-  const blocks: Block[] = [];
+  const blocks: Block[] = [
+    {
+      priority: -1,
+      text: wrapUntrusted('pr-title', `${pull.title}\nBranch: ${pull.branch} → ${pull.base}`),
+      name: 'pr_title',
+      source: 'pr_author',
+      truncated: false,
+    },
+  ];
   const description = meaningfulDescription(pull.body);
   if (description) {
     blocks.push({

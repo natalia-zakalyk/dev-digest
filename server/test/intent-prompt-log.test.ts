@@ -57,10 +57,11 @@ describe('buildClassifierPrompt', () => {
     const { messages } = buildClassifierPrompt(i, countTokens);
     expect(messages).toEqual(buildClassifierMessages(i, countTokens));
     expect(messages[0]).toEqual({ role: 'system', content: CLASSIFIER_SYSTEM_PROMPT });
-    const header = `PR #7: ${S.title}\nBranch: feat/x → main\nStats: 2 file(s), +10 −2`;
+    const header = 'PR #7\nStats: 2 file(s), +10 −2';
     expect(messages[1]!.content).toBe(
       [
         header,
+        wrapUntrusted('pr-title', `${S.title}\nBranch: feat/x → main`),
         wrapUntrusted('pr-description', S.body.trim()),
         wrapUntrusted('linked-issue #12', S.issue),
         wrapUntrusted('linked-doc-0 docs/spec.md', S.doc),
@@ -74,7 +75,7 @@ describe('buildClassifierPrompt', () => {
   it('section meta lists every present section with sizes and no content', () => {
     const { sections } = buildClassifierPrompt(input(), countTokens);
     expect(sections.map((s) => s.name)).toEqual([
-      'system', 'header', 'pr_description', 'linked_issue', 'linked_doc', 'commits', 'changed_files', 'prior_prs',
+      'system', 'header', 'pr_title', 'pr_description', 'linked_issue', 'linked_doc', 'commits', 'changed_files', 'prior_prs',
     ]);
     expect(sections.every((s) => !s.dropped)).toBe(true);
     const sys = sections[0]!;
@@ -102,17 +103,17 @@ describe('buildClassifierPrompt', () => {
 
   it('under a tiny budget the lowest-priority sections are dropped and flagged, the messages match', () => {
     const i = input();
-    // Smaller than header + description: everything but the highest-priority block goes.
+    // Smaller than header + title: everything but the highest-priority block (the PR title) goes.
     const { messages, sections } = buildClassifierPrompt(i, countTokens, 1);
     const dropped = Object.fromEntries(sections.map((s) => [s.name, s.dropped]));
     expect(dropped).toEqual({
-      system: false, header: false, pr_description: false,
+      system: false, header: false, pr_title: false, pr_description: true,
       linked_issue: true, linked_doc: true, commits: true, changed_files: true, prior_prs: true,
     });
     expect(messages).toEqual(buildClassifierMessages(i, countTokens, 1));
     const user = messages[1]!.content;
-    expect(user).toContain('pr-description');
-    for (const gone of ['linked-issue', 'linked-doc', 'commits', 'changed-files', 'prior-prs']) {
+    expect(user).toContain('pr-title');
+    for (const gone of ['pr-description', 'linked-issue', 'linked-doc', 'commits', 'changed-files', 'prior-prs']) {
       expect(user).not.toContain(gone);
     }
   });
@@ -210,7 +211,7 @@ describe('IntentService.derive — onClassifierPrompt', () => {
     expect(r.stored.method).toBe('llm');
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ provider: 'openrouter', model: 'x/y' });
-    expect(seen[0]!.sections.map((s) => s.name)).toEqual(['system', 'header', 'pr_description', 'commits', 'changed_files']);
+    expect(seen[0]!.sections.map((s) => s.name)).toEqual(['system', 'header', 'pr_title', 'pr_description', 'commits', 'changed_files']);
     expect(JSON.stringify(seen[0])).not.toContain('SENTINEL');
   });
 

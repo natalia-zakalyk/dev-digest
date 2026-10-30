@@ -26,6 +26,7 @@ export type PromptLogSectionName =
   | 'callers'
   | 'diff'
   | 'header'
+  | 'pr_title'
   | 'linked_issue'
   | 'linked_doc'
   | 'commits'

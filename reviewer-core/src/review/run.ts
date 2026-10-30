@@ -210,13 +210,17 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     );
     const a = assemblePrompt({ ...promptParts, diff: chunk.diffText }, input.measure ? { measure: input.measure } : {});
     if (mode === 'single-pass') assembly = a.assembly;
-    input.onPromptAssembled?.({
-      chunkIndex,
-      chunkCount: chunks.length,
-      label: chunk.label,
-      mode,
-      sections: a.sections,
-    });
+    try {
+      input.onPromptAssembled?.({
+        chunkIndex,
+        chunkCount: chunks.length,
+        label: chunk.label,
+        mode,
+        sections: a.sections,
+      });
+    } catch {
+      // Diagnostics only: a failing observer must never fail the review.
+    }
     const res = await input.llm.completeStructured<Review>({
       model: input.model,
       schema: ReviewSchema,
