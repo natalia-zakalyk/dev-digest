@@ -49,12 +49,12 @@ describe("FindingCard (smoke, both themes)", () => {
     });
   });
 
-  it("fires accept/reject actions (Reject persists as dismiss)", () => {
+  it("fires accept/dismiss actions (Dismiss persists as dismiss)", () => {
     const onAction = vi.fn();
     renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={onAction} />);
     fireEvent.click(screen.getByText("Accept"));
     expect(onAction).toHaveBeenCalledWith("accept");
-    fireEvent.click(screen.getByText("Reject"));
+    fireEvent.click(screen.getByText("Dismiss"));
     expect(onAction).toHaveBeenCalledWith("dismiss");
   });
 });

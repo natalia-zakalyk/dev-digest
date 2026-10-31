@@ -4,7 +4,7 @@
     "dismissed": "rejected",
     "suggestedFix": "Suggested fix",
     "accept": "Accept",
-    "dismiss": "Reject",
+    "dismiss": "Dismiss",
     "learn": "Learn",
     "replyToAuthor": "Reply to author",
     "replyPlaceholder": "Reply to the author about this finding…",
@@ -64,8 +64,8 @@
   },
   "diffTab": {
     "title": "Files changed · {count, plural, one {# file} other {# files}}",
-    "showComments": "Show comments",
-    "hideComments": "Hide comments",
+    "showCommentsAndFindings": "Show comments & findings",
+    "hideCommentsAndFindings": "Hide comments & findings",
     "postFailed": "Couldn't post the comment to GitHub."
   },
   "smartDiff": {

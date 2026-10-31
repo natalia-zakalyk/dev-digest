@@ -65,6 +65,21 @@ describe("DiffViewer findings", () => {
     expect(screen.getByTestId("finding-f2")).toBeInTheDocument();
   });
 
+  it("showFindings=false hides cards, labels and the fallback list but keeps the file dot", () => {
+    renderViewer({
+      files: FILES,
+      findings: {
+        ...api([finding({}), finding({ id: "f2", title: "Far away", severity: "WARNING", start_line: 500 })]),
+        showFindings: false,
+      },
+    });
+    expect(screen.queryByTestId("finding-f1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("finding-f2")).not.toBeInTheDocument();
+    expect(screen.queryByText("blocker")).not.toBeInTheDocument();
+    expect(screen.queryByText("Findings outside the shown lines")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "Has review findings" })).toHaveLength(1);
+  });
+
   it("starts file cards collapsed with defaultCollapsed", () => {
     renderViewer({ files: FILES, defaultCollapsed: true });
     for (const b of screen.getAllByRole("button")) expect(b).toHaveAttribute("aria-expanded", "false");

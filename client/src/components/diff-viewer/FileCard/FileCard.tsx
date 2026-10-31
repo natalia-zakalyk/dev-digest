@@ -83,6 +83,8 @@ export function FileCard({
     return partitionByLineKey(fileFindings, findingLineKey, renderedKeys);
   }, [fileFindings, lines]);
 
+  const showFindings = findings?.showFindings !== false;
+
   const commentCount = commenting
     ? commenting.comments.filter((c) => c.path === file.path).length
     : 0;
@@ -131,13 +133,13 @@ export function FileCard({
                 path={file.path}
                 threads={threadsForLine(ln, matched)}
                 findings={findingsForLine(ln, matchedFindings)}
-                renderFinding={findings?.renderFinding}
+                renderFinding={showFindings ? findings?.renderFinding : undefined}
                 commenting={commenting}
               />
             ))
           )}
           {commenting && commenting.showComments && <OutdatedComments threads={outdated} />}
-          {findings && <UnanchoredFindings findings={unanchored} renderFinding={findings.renderFinding} />}
+          {findings && showFindings && <UnanchoredFindings findings={unanchored} renderFinding={findings.renderFinding} />}
         </div>
       )}
     </div>

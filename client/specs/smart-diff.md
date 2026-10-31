@@ -25,8 +25,12 @@ collapsed while the header stays visible, so a lock-file path is readable withou
   `DiffFindingApi`, so `components/` never imports route code). The line gets a left bar in the
   severity colour and a right-aligned label: CRITICAL → `blocker`, WARNING → `warning`,
   SUGGESTION → `suggestion` (INFO: no bar).
-- A finding whose line is not rendered goes to an always-visible list "Findings outside the shown lines"
-  at the end of the file body.
+- A finding whose line is not rendered goes to a list "Findings outside the shown lines"
+  at the end of the file body (visible whenever findings are shown).
+- One toolbar button "Hide / Show comments & findings (N)" toggles GitHub comments and findings together
+  (`showFindings` default on, `showComments` default off; `anyShown` = either; click sets both to `!anyShown`).
+  Hidden findings drop cards, bars, labels and the fallback list; the file dot and group counter stay.
+  The button renders when comments + findings > 0.
 - Dismiss removes the card (the server excludes dismissed findings); Accept keeps it.
 
 ## Data
@@ -39,5 +43,6 @@ and cards. Finding records come from `usePrReviews`, joined by `finding_ids`.
 - Docs and boilerplate file cards are collapsed; the lock file path is visible under Boilerplate.
 - After Run review: group counter (files) and file dot appear.
 - Expanded file shows the finding under the right line with bar and label; Accept/Dismiss work.
+- Findings visible by default; the toolbar button hides them (dot and counter stay) and shows them again with the comments.
 - Original order toggle removes groups and keeps findings inline.
 - Agent runs tab is unchanged.

@@ -38,6 +38,9 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
   // Comments start hidden so the diff is clean by default — toggle to reveal.
   const [showComments, setShowComments] = React.useState(false);
 
+  // Findings stay visible by default (P1); the toolbar button hides/shows them together with comments.
+  const [showFindings, setShowFindings] = React.useState(true);
+
   const commentCount = comments?.length ?? 0;
 
   const commenting: DiffCommentApi = {
@@ -65,25 +68,37 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
   const findings = React.useMemo(
     () => ({
       byPath,
+      showFindings,
       renderFinding: (f: FindingRecord) =>
         prId ? <DiffFinding finding={f} prId={prId} repoFullName={repoFullName} headSha={headSha} /> : null,
     }),
-    [byPath, prId, repoFullName, headSha],
+    [byPath, showFindings, prId, repoFullName, headSha],
   );
   const groups = React.useMemo(() => (smartDiff ? groupPrFiles(files, smartDiff) : []), [files, smartDiff]);
   const showGroups = !!smartDiff && order === "smart";
 
+  const findingCount = React.useMemo(() => {
+    let n = 0;
+    for (const list of byPath.values()) n += list.length;
+    return n;
+  }, [byPath]);
+  const anyShown = showComments || showFindings;
+  const toggleCount = commentCount + findingCount;
+
   const toolbar = (
     <>
       {smartDiff && <OrderToggle order={order} onChange={setOrder} />}
-      {commentCount > 0 && (
+      {toggleCount > 0 && (
         <Button
           kind="ghost"
           size="sm"
-          icon={showComments ? "EyeOff" : "Eye"}
-          onClick={() => setShowComments((v) => !v)}
+          icon={anyShown ? "EyeOff" : "Eye"}
+          onClick={() => {
+            setShowComments(!anyShown);
+            setShowFindings(!anyShown);
+          }}
         >
-          {showComments ? t("hideComments") : t("showComments")} ({commentCount})
+          {anyShown ? t("hideCommentsAndFindings") : t("showCommentsAndFindings")} ({toggleCount})
         </Button>
       )}
     </>

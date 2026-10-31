@@ -81,7 +81,7 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 |---|---|---|
 | Overview | `overview` | Intent card (full width, see [intent-layer.md](intent-layer.md)) + PR description (`OverviewTab`); description hidden if body is empty |
 | Agent runs (count = total findings) | `findings` | `FindingsTab`, see below |
-| Files changed (count = files) | `diff` | `DiffTab`: Smart order (files grouped by role: core, tests, wiring, docs, boilerplate; findings inline; `usePrSmartDiff` → `GET /pulls/:id/smart-diff`) or Original order, see [smart-diff.md](smart-diff.md); `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden by default with Show/Hide toggle; commenting only when `pr.status === "open"` |
+| Files changed (count = files) | `diff` | `DiffTab`: Smart order (files grouped by role: core, tests, wiring, docs, boilerplate; findings inline; `usePrSmartDiff` → `GET /pulls/:id/smart-diff`) or Original order, see [smart-diff.md](smart-diff.md); `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden and findings shown by default; one Show/Hide "comments & findings" toggle; commenting only when `pr.status === "open"` |
 
 - **Agent runs tab** (`FindingsTab`), top to bottom:
   1. **Live review** (when active runs exist): `RunStatus` streams SSE logs for all live run ids; **Cancel** (cancels every live run) and **Open run trace** (first live run). When the streams end (server's terminal `done`) → invalidate active runs + run history once, refetch reviews.

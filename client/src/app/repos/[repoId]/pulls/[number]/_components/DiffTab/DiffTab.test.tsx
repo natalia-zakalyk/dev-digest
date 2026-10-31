@@ -133,8 +133,26 @@ describe("DiffTab smart diff", () => {
   it("dismisses a finding under the line via the dismiss endpoint", async () => {
     mount();
     const card = (await screen.findByText("Off by one")).closest("[data-finding-id]") as HTMLElement;
-    fireEvent.click(within(card).getByRole("button", { name: "Reject" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(m.post).toHaveBeenCalledWith("/findings/f1/dismiss", undefined));
+  });
+
+  it("one toolbar button hides/shows findings and comments together; the dot and counter stay", async () => {
+    mount();
+    // findings only (no comments) still render the button, with the findings count
+    const hide = await screen.findByRole("button", { name: "Hide comments & findings (2)" });
+    expect(screen.getByText("Off by one")).toBeInTheDocument();
+
+    fireEvent.click(hide);
+    expect(screen.queryByText("Off by one")).not.toBeInTheDocument();
+    expect(screen.queryByText("Missing check")).not.toBeInTheDocument();
+    expect(screen.queryByText("blocker")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "Has review findings" }).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("2 files with findings")).toHaveTextContent("● 2");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show comments & findings (2)" }));
+    expect(screen.getByText("Off by one")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide comments & findings (2)" })).toBeInTheDocument();
   });
 
   it("refetches smart-diff when the PR's reviews are invalidated", async () => {

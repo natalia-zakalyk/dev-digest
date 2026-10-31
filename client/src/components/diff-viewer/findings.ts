@@ -12,6 +12,8 @@ export type LineSeverity = keyof typeof SEVERITY_LINE_LABEL;
 export interface DiffFindingApi {
   /** Findings per file path. */
   byPath: ReadonlyMap<string, FindingRecord[]>;
+  /** Hide finding cards, bars and labels (default: shown). The file-card dot stays. */
+  showFindings?: boolean;
   /** Must return a real component element (`<DiffFinding …/>`), never an inline JSX tree. */
   renderFinding: (f: FindingRecord) => ReactNode;
 }
