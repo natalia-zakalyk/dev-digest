@@ -1,0 +1,73 @@
+import React from "react";
+import { describe, it, expect, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import type { FindingRecord, PrFile } from "@devdigest/shared";
+import shell from "../../../../messages/en/shell.json";
+import common from "../../../../messages/en/common.json";
+import { DiffViewer } from "./DiffViewer";
+import type { DiffFindingApi } from "../findings";
+
+afterEach(cleanup);
+
+const FILES: PrFile[] = [
+  { path: "src/a.ts", additions: 2, deletions: 0, patch: "@@ -1,1 +1,3 @@\n const a = 1;\n+const b = 2;\n+const c = 3;" },
+  { path: "src/clean.ts", additions: 1, deletions: 0, patch: "@@ -1,1 +1,2 @@\n x\n+y" },
+];
+
+const finding = (o: Partial<FindingRecord>): FindingRecord => ({
+  id: "f1",
+  severity: "CRITICAL",
+  category: "bug",
+  title: "Off by one",
+  file: "src/a.ts",
+  start_line: 2,
+  end_line: 2,
+  rationale: "r",
+  confidence: 0.9,
+  review_id: "r1",
+  accepted_at: null,
+  dismissed_at: null,
+  ...o,
+});
+
+function Card({ f }: { f: FindingRecord }) {
+  return <div data-testid={`finding-${f.id}`}>{f.title}</div>;
+}
+
+function api(list: FindingRecord[]): DiffFindingApi {
+  const byPath = new Map<string, FindingRecord[]>();
+  for (const f of list) byPath.set(f.file, [...(byPath.get(f.file) ?? []), f]);
+  return { byPath, renderFinding: (f) => <Card f={f} /> };
+}
+
+function renderViewer(props: React.ComponentProps<typeof DiffViewer>) {
+  render(
+    <NextIntlClientProvider locale="en" messages={{ shell, common }}>
+      <DiffViewer {...props} />
+    </NextIntlClientProvider>,
+  );
+}
+
+describe("DiffViewer findings", () => {
+  it("shows the file dot, the finding under its line with a severity label, and an unanchored fallback", () => {
+    renderViewer({
+      files: FILES,
+      findings: api([finding({}), finding({ id: "f2", title: "Far away", severity: "WARNING", start_line: 500 })]),
+    });
+    // dot only on the file with findings
+    expect(screen.getAllByRole("img", { name: "Has review findings" })).toHaveLength(1);
+    // anchored finding rendered under the line, with the severity label
+    expect(screen.getByTestId("finding-f1")).toBeInTheDocument();
+    expect(screen.getByText("blocker")).toBeInTheDocument();
+    // unanchored finding lands in the always-visible fallback list
+    expect(screen.getByText("Findings outside the shown lines")).toBeInTheDocument();
+    expect(screen.getByTestId("finding-f2")).toBeInTheDocument();
+  });
+
+  it("starts file cards collapsed with defaultCollapsed", () => {
+    renderViewer({ files: FILES, defaultCollapsed: true });
+    for (const b of screen.getAllByRole("button")) expect(b).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
+  });
+});

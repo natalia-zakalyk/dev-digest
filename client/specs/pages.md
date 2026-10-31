@@ -71,7 +71,7 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 - **Query params:** `?tab` = `overview` (default) `| findings | diff`; `?trace=<runId>` opens the Run trace drawer. Both updated with `router.replace` (no history entries).
 - **Data:**
   - `usePulls(repoId)` to resolve **number → PR uuid**, then `usePullDetail(prId)` → `GET /pulls/:id`.
-  - `usePrReviews` → `GET /pulls/:id/reviews` · `usePrActiveRuns` → `GET /pulls/:id/runs/active` (polls 4 s while non-empty) · `usePrRuns` → `GET /pulls/:id/runs` (polls 4 s while any `running`).
+  - `usePrReviews` → `GET /pulls/:id/reviews` · `usePrActiveRuns` → `GET /pulls/:id/runs/active` (polls 4 s while non-empty) · `usePrRuns` → `GET /pulls/:id/runs` (polls 4 s while any `running`) · `usePrSmartDiff` → `GET /pulls/:id/smart-diff` (Files changed tab; refetched when the PR's reviews are invalidated).
   - Mutations: `useRunReview` `POST /pulls/:id/review` · `useCancelRun` `POST /runs/:id/cancel` · `useDeleteRun` `DELETE /runs/:id` · `useDeleteReview` `DELETE /reviews/:id` · `useFindingAction` `POST /findings/:id/(accept|dismiss)`.
 - **States:** unknown repo → `RepoNotFound` · loading (pulls or detail) → skeletons · error or PR not found → full-screen `ErrorState` "Couldn't load this pull request" + Retry.
 - **Header** (`PrDetailHeader`): `#number title`, author, `branch → base`, `+add −del`, status badge; "View on GitHub" (disabled until repo `full_name` known); **Run review ▾** (`RunReviewDropdown`: run all enabled agents, or any single agent incl. disabled; "Configure agents" → `/agents`; merged/closed PRs get a warning item + dimmed trigger and a banner, but running is still allowed). Starting a run switches to `?tab=findings` and invalidates active runs.
@@ -81,7 +81,7 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 |---|---|---|
 | Overview | `overview` | Intent card (full width, see [intent-layer.md](intent-layer.md)) + PR description (`OverviewTab`); description hidden if body is empty |
 | Agent runs (count = total findings) | `findings` | `FindingsTab`, see below |
-| Files changed (count = files) | `diff` | `DiffTab`: `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden by default with Show/Hide toggle; commenting only when `pr.status === "open"` |
+| Files changed (count = files) | `diff` | `DiffTab`: Smart order (files grouped by role: core, tests, wiring, docs, boilerplate; findings inline; `usePrSmartDiff` → `GET /pulls/:id/smart-diff`) or Original order, see [smart-diff.md](smart-diff.md); `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden by default with Show/Hide toggle; commenting only when `pr.status === "open"` |
 
 - **Agent runs tab** (`FindingsTab`), top to bottom:
   1. **Live review** (when active runs exist): `RunStatus` streams SSE logs for all live run ids; **Cancel** (cancels every live run) and **Open run trace** (first live run). When the streams end (server's terminal `done`) → invalidate active runs + run history once, refetch reviews.

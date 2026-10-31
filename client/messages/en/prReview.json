@@ -62,10 +62,27 @@
     "findings": "{count, plural, one {# finding} other {# findings}}",
     "blockers": " · {count, plural, one {# blocker} other {# blockers}}"
   },
+  "diffTab": {
+    "title": "Files changed · {count, plural, one {# file} other {# files}}",
+    "showComments": "Show comments",
+    "hideComments": "Hide comments",
+    "postFailed": "Couldn't post the comment to GitHub."
+  },
   "smartDiff": {
     "coreLabel": "Core",
+    "testsLabel": "Tests",
     "wiringLabel": "Wiring",
+    "docsLabel": "Docs",
     "boilerplateLabel": "Boilerplate",
+    "coreDescription": "The substance of the change — review closely",
+    "testsDescription": "Test files, fixtures and test helpers",
+    "wiringDescription": "Config, manifests, barrels and CI — how the pieces connect",
+    "docsDescription": "Documentation and licences",
+    "boilerplateDescription": "Lock files, generated and build output — skim only",
+    "orderLabel": "File order",
+    "orderSmart": "Smart order",
+    "orderOriginal": "Original order",
+    "filesWithFindings": "{count, plural, one {# file} other {# files}} with findings",
     "largeTitle": "This PR is large ({lines} changed lines)",
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
     "filesCount": "{count} files",

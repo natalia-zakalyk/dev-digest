@@ -124,7 +124,8 @@ export const PrHistory = z.object({
 export type PrHistory = z.infer<typeof PrHistory>;
 
 // ---- Smart Diff ----
-export const SmartDiffRole = z.enum(['core', 'wiring', 'boilerplate']);
+// Enum order = display order of the groups in the Files changed tab.
+export const SmartDiffRole = z.enum(['core', 'tests', 'wiring', 'docs', 'boilerplate']);
 export type SmartDiffRole = z.infer<typeof SmartDiffRole>;
 
 export const SmartDiffFile = z.object({
@@ -133,6 +134,8 @@ export const SmartDiffFile = z.object({
   additions: z.number().int(),
   deletions: z.number().int(),
   finding_lines: z.array(z.number().int()),
+  // Ids of the counted findings on this file (same order as finding_lines, by line then id).
+  finding_ids: z.array(z.string()),
 });
 export type SmartDiffFile = z.infer<typeof SmartDiffFile>;
 

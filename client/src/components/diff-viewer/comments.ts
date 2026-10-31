@@ -82,6 +82,31 @@ export function commentTargetFor(ln: Line): { line: number; side: "LEFT" | "RIGH
 }
 
 /**
+ * Split items into those that match a rendered line key (grouped by key) and
+ * the rest, which callers surface separately so nothing is silently dropped.
+ * `keyOf` returns the item's `${side}:${line}` key, or null when it has none.
+ */
+export function partitionByLineKey<T>(
+  items: T[],
+  keyOf: (item: T) => string | null,
+  renderedKeys: Set<string>,
+): { matched: Map<string, T[]>; unmatched: T[] } {
+  const matched = new Map<string, T[]>();
+  const unmatched: T[] = [];
+  for (const item of items) {
+    const key = keyOf(item);
+    if (key && renderedKeys.has(key)) {
+      const list = matched.get(key) ?? [];
+      list.push(item);
+      matched.set(key, list);
+    } else {
+      unmatched.push(item);
+    }
+  }
+  return { matched, unmatched };
+}
+
+/**
  * Split threads into those that match a rendered line (keyed) and "outdated"
  * ones GitHub can no longer anchor (or whose line isn't in this patch). The
  * outdated bucket is surfaced separately so nothing is silently dropped.
@@ -90,19 +115,12 @@ export function partitionThreads(
   threads: CommentThread[],
   renderedKeys: Set<string>,
 ): { matched: Map<string, CommentThread[]>; outdated: CommentThread[] } {
-  const matched = new Map<string, CommentThread[]>();
-  const outdated: CommentThread[] = [];
-  for (const th of threads) {
-    const key = th.line != null ? `${th.side}:${th.line}` : null;
-    if (key && renderedKeys.has(key)) {
-      const list = matched.get(key) ?? [];
-      list.push(th);
-      matched.set(key, list);
-    } else {
-      outdated.push(th);
-    }
-  }
-  return { matched, outdated };
+  const { matched, unmatched } = partitionByLineKey(
+    threads,
+    (th) => lineKey(th.side, th.line),
+    renderedKeys,
+  );
+  return { matched, outdated: unmatched };
 }
 
 // ---- styles (layout only; cards/inputs/buttons reuse @devdigest/ui) ----
