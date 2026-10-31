@@ -42,6 +42,7 @@ const SMART: SmartDiffResponse = {
     { role: "boilerplate", files: [sf("pnpm-lock.yaml")] },
   ],
   split_suggestion: { too_big: false, total_lines: 6, proposed_splits: [] },
+  source_tokens: 108089,
 };
 
 const rec = (id: string, file: string, title: string): FindingRecord => ({
@@ -128,6 +129,26 @@ describe("DiffTab smart diff", () => {
       .filter((t) => /\.(md|yaml|ts)/.test(t));
     expect(paths[0]).toContain("README.md");
     expect(screen.getByText("Off by one")).toBeInTheDocument();
+  });
+
+  it("shows the token note in both orders and hides it when there is no source_tokens", async () => {
+    mount();
+    const note = "0 new tokens · built on 108,089 from last review";
+    expect(await screen.findByText(note)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Original order" }));
+    expect(screen.getByText(note)).toBeInTheDocument();
+    cleanup();
+
+    qc.clear();
+    m.get.mockImplementation(async (path: string) => {
+      if (path === "/pulls/pr1/smart-diff") return { ...SMART, source_tokens: null };
+      if (path === "/pulls/pr1/reviews") return REVIEWS;
+      if (path === "/pulls/pr1/comments") return [];
+      throw new Error(`unexpected GET ${path}`);
+    });
+    mount();
+    await screen.findByText("Off by one");
+    expect(screen.queryByText(/new tokens/)).not.toBeInTheDocument();
   });
 
   it("dismisses a finding under the line via the dismiss endpoint", async () => {

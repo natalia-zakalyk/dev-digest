@@ -31,3 +31,6 @@ export const COLLAPSED_ROLES: ReadonlySet<SmartDiffRole> = new Set<SmartDiffRole
 
 export const DIFF_ORDERS = ["smart", "original"] as const;
 export type DiffOrder = (typeof DIFF_ORDERS)[number];
+
+/** Smart Diff groups files locally and deterministically, so it never spends model tokens. */
+export const SMART_DIFF_NEW_TOKENS = 0;

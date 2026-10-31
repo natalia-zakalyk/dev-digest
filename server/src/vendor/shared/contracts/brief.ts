@@ -158,6 +158,11 @@ export const SmartDiff = z.object({
     total_lines: z.number().int(),
     proposed_splits: z.array(ProposedSplit),
   }),
+  /**
+   * tokens_in + tokens_out of the latest review run per agent that this view is built on.
+   * Smart Diff itself spends no model tokens. Absent/null when there is no review run yet.
+   */
+  source_tokens: z.number().int().nullish(),
 });
 export type SmartDiff = z.infer<typeof SmartDiff>;
 

@@ -87,7 +87,8 @@
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
     "filesCount": "{count} files",
     "findingLines": "{count} finding-lines",
-    "groupedByRole": "Smart Diff · grouped by role"
+    "groupedByRole": "Smart Diff · grouped by role",
+    "tokenNote": "{newTokens, plural, one {# new token} other {# new tokens}} · built on {tokens} from last review"
   },
   "list": {
     "breadcrumb": "Pull Requests",

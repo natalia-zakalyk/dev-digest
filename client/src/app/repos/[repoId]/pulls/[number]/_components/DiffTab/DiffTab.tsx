@@ -11,6 +11,7 @@ import type { FindingRecord, PrFile } from "@devdigest/shared";
 import { DiffFinding } from "./_components/DiffFinding";
 import { OrderToggle } from "./_components/OrderToggle";
 import { RoleGroup } from "./_components/RoleGroup";
+import { TokenNote } from "./_components/TokenNote";
 import type { DiffOrder } from "./constants";
 import { findingsByPath, groupPrFiles } from "./helpers";
 import { s } from "./styles";
@@ -112,6 +113,7 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
       >
         {t("title", { count: filesCount })}
       </SectionLabel>
+      {smartDiff?.source_tokens != null && <TokenNote sourceTokens={smartDiff.source_tokens} />}
       {showGroups ? (
         <div style={s.groups}>
           {groups.map((g) => (

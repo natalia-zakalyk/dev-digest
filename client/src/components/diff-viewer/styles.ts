@@ -118,17 +118,27 @@ export function findingBarFor(color: string): CSSProperties {
   return { boxShadow: `inset 3px 0 0 ${color}` };
 }
 
-/** Right-aligned severity label on a line that carries findings. */
+/** Right-aligned column of per-finding severity labels (one per finding, stacked). */
+export const findingLabelStack: CSSProperties = {
+  alignSelf: "center",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: 2,
+  marginRight: 10,
+  flexShrink: 0,
+};
+
+/** One severity label: small coloured icon + lowercase word. */
 export function findingLabelFor(color: string): CSSProperties {
   return {
-    alignSelf: "center",
-    marginRight: 10,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
     fontSize: 11,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
     color,
-    flexShrink: 0,
   };
 }
 

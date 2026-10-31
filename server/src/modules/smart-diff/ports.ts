@@ -8,8 +8,10 @@ export interface SmartDiffSource {
   /** Newest first, each review with its findings. */
   reviewsForPull(prId: string): Promise<
     {
-      review: { id: string; prId: string; agentId: string | null; kind: string };
+      review: { id: string; prId: string; agentId: string | null; runId: string | null; kind: string };
       findings: { id: string; file: string; startLine: number; dismissedAt: Date | null }[];
     }[]
   >;
+  /** Token counts of the given agent runs; runs that no longer exist are simply absent. */
+  runTokens(runIds: string[]): Promise<{ tokensIn: number | null; tokensOut: number | null }[]>;
 }

@@ -65,6 +65,22 @@ describe("DiffViewer findings", () => {
     expect(screen.getByTestId("finding-f2")).toBeInTheDocument();
   });
 
+  it("shows one lowercase label per finding on a line (most severe first), INFO gets none", () => {
+    renderViewer({
+      files: FILES,
+      findings: api([
+        finding({ id: "f1", severity: "SUGGESTION", title: "Nit" }),
+        finding({ id: "f2", severity: "CRITICAL", title: "Bug" }),
+        finding({ id: "f3", severity: "CRITICAL", title: "Bug 2" }),
+        finding({ id: "f4", severity: "INFO" as unknown as FindingRecord["severity"], title: "Fyi" }),
+      ]),
+    });
+    const labels = ["blocker", "suggestion"].map((w) => screen.getAllByText(w).map((n) => n.textContent));
+    expect(labels).toEqual([["blocker", "blocker"], ["suggestion"]]);
+    expect(screen.queryByText("info")).not.toBeInTheDocument();
+    expect(screen.queryByText("BLOCKER")).not.toBeInTheDocument();
+  });
+
   it("showFindings=false hides cards, labels and the fallback list but keeps the file dot", () => {
     renderViewer({
       files: FILES,

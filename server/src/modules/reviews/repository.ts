@@ -97,6 +97,11 @@ export class ReviewRepository {
     return runRepo.deleteAgentRun(this.db, workspaceId, runId);
   }
 
+  /** Token counts of the given runs (Smart Diff "built on N tokens"). */
+  runTokens(runIds: string[]): Promise<{ tokensIn: number | null; tokensOut: number | null }[]> {
+    return runRepo.runTokens(this.db, runIds);
+  }
+
   /** Does this run belong to the workspace? */
   runInWorkspace(workspaceId: string, runId: string): Promise<boolean> {
     return runRepo.runInWorkspace(this.db, workspaceId, runId);

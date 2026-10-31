@@ -21,13 +21,22 @@ const review = (
   agentId: string | null,
   findings: Rev['findings'],
   kind = 'review',
-): Rev => ({ review: { id, prId: PR, agentId, kind }, findings });
+  runId: string | null = `run-${id}`,
+): Rev => ({ review: { id, prId: PR, agentId, runId, kind }, findings });
 
-function fakeSource(files: ReturnType<typeof file>[], reviews: Rev[], known = true): SmartDiffSource {
+type Tokens = Record<string, { tokensIn: number | null; tokensOut: number | null }>;
+
+function fakeSource(
+  files: ReturnType<typeof file>[],
+  reviews: Rev[],
+  known = true,
+  tokens: Tokens = {},
+): SmartDiffSource {
   return {
     getPull: async () => (known ? { id: PR } : undefined),
     getPrFiles: async () => files,
     reviewsForPull: async () => reviews,
+    runTokens: async (ids) => ids.flatMap((id) => (tokens[id] ? [tokens[id]!] : [])),
   };
 }
 
@@ -111,6 +120,32 @@ describe('SmartDiffService', () => {
     const a = d.groups.flatMap((g) => g.files).find((f) => f.path === 'src/a.ts')!;
     expect(a.finding_ids).toEqual(['acc']);
     expect(a.finding_lines).toEqual([4]);
+  });
+
+  it('sums tokens of the latest review run per agent only; dismissed/accepted do not matter', async () => {
+    const tokens: Tokens = {
+      'run-r3': { tokensIn: 100, tokensOut: 20 },
+      'run-r2': { tokensIn: 50, tokensOut: null },
+      'run-r1': { tokensIn: 9000, tokensOut: 9000 }, // superseded rerun of a1
+      'run-r0': { tokensIn: 7000, tokensOut: 7000 }, // summary review
+    };
+    const reviews = [
+      review('r3', 'a1', [finding('x', 'src/a.ts', 1, new Date())]),
+      review('r2', 'a2', [{ ...finding('y', 'src/a.ts', 2), acceptedAt: new Date() }]),
+      review('r1', 'a1', []),
+      review('r0', 'a9', [], 'summary'),
+    ];
+    const d = await new SmartDiffService({ source: fakeSource(FILES, reviews, true, tokens) }).get('ws', PR);
+    expect(d.source_tokens).toBe(170);
+    expect(() => SmartDiffResponse.parse(d)).not.toThrow();
+  });
+
+  it('source_tokens is null when no review run is known', async () => {
+    const svc = (reviews: Rev[]) => new SmartDiffService({ source: fakeSource(FILES, reviews) }).get('ws', PR);
+    expect((await svc([])).source_tokens).toBeNull();
+    expect((await svc([review('r1', null, [], 'review', null)])).source_tokens).toBeNull();
+    // run row gone (e.g. deleted) -> nothing to sum
+    expect((await svc([review('r1', 'a1', [])])).source_tokens).toBeNull();
   });
 
   it('throws NotFoundError for an unknown PR', async () => {

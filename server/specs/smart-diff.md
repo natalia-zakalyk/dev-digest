@@ -30,6 +30,11 @@ No LLM call, no DB schema change.
 - `split_suggestion` is a stub: `{ too_big: false, total_lines: Σ(additions+deletions), proposed_splits: [] }`.
   `pseudocode_summary` is left out.
 
+- `source_tokens` (`z.number().int().nullish()`): Σ(`tokens_in` + `tokens_out`) of the `agent_runs` behind the
+  counted reviews (latest review per agent, `kind = 'review'`, via `reviews.run_id`); null tokens count as 0.
+  `null` when no counted review has a run row. Independent of accepted/dismissed. Smart Diff itself spends
+  no model tokens; the field tells the client what the view is "built on".
+
 ## Which findings count
 - Reviews of `kind = 'review'` only; the **latest review of each agent** (`latestReviewPerAgent`,
   same rule as [findings-severity.md](findings-severity.md)); agent-less seeded reviews only while the
@@ -40,11 +45,12 @@ No LLM call, no DB schema change.
 
 ## Implementation
 `modules/smart-diff/`: `constants.ts`, `domain/{classify,build}.ts` (pure), `ports.ts`
-(`SmartDiffSource`, satisfied structurally by `ReviewRepository`), `service.ts`, `compose.ts`, `routes.ts`.
+(`SmartDiffSource`, satisfied structurally by `ReviewRepository`; `runTokens(runIds)` is the one added read, in `run.repo.ts`, no schema change), `service.ts`, `compose.ts`, `routes.ts`.
 
 ## Acceptance criteria
 - Groups appear in fixed order with role and file count; empty groups are omitted.
 - Lock files land in `boilerplate`, docs in `docs`.
 - 2 files carrying 5 findings give 2 files with non-empty `finding_ids`.
 - A rerun of one agent replaces its findings; two agents add up; dismissed are excluded.
+- `source_tokens` sums only the latest review run per agent and is null without runs.
 - Unknown PR / other workspace → 404; invalid id → 422.

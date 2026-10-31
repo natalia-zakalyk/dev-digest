@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { DbExecutor as Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
@@ -83,6 +83,18 @@ export async function deleteAgentRun(
     .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.workspaceId, workspaceId)))
     .returning({ id: t.agentRuns.id });
   return rows.length > 0;
+}
+
+/** Token counts of the given runs (absent ids are skipped). */
+export async function runTokens(
+  db: Db,
+  runIds: string[],
+): Promise<{ tokensIn: number | null; tokensOut: number | null }[]> {
+  if (runIds.length === 0) return [];
+  return db
+    .select({ tokensIn: t.agentRuns.tokensIn, tokensOut: t.agentRuns.tokensOut })
+    .from(t.agentRuns)
+    .where(inArray(t.agentRuns.id, runIds));
 }
 
 /** Does this run belong to the workspace? (Tenancy guard for run-id routes.) */
