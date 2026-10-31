@@ -169,3 +169,5 @@ and a per-trigger `correlation_id`. Never prompt text, and it never goes to SSE 
 run trace: `run_traces.prompt_assembly` keeps the full prompt for debugging, the ops log keeps sizes only.
 `PROMPT_LOG_VERBOSE` / `PROMPT_LOG_HASHES` add per-item metadata (local development only). Spec:
 [specs/prompt-assembly-logging.md](specs/prompt-assembly-logging.md).
+
+> Demo branch: `server/src/platform/short-id.ts` exists only to exercise Smart Diff.
