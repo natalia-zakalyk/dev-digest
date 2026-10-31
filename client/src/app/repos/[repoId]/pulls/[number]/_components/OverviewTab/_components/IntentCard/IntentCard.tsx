@@ -18,8 +18,9 @@ function ScopeList({ label, items, emptyText }: { label: string; items: string[]
       <div style={s.listLabel}>{label}</div>
       {items.length > 0 ? (
         <ul style={s.list}>
-          {items.map((item) => (
-            <li key={item}>{item}</li>
+          {items.map((item, i) => (
+            // model-generated strings may repeat, so the index keeps keys unique (lists are static)
+            <li key={`${item}-${i}`}>{item}</li>
           ))}
         </ul>
       ) : (
@@ -48,8 +49,8 @@ function IntentBody({ intent, prId }: { intent: PrIntentRecord; prId: string }) 
         <div>
           <div style={{ ...s.listLabel, marginTop: 16, marginBottom: 0 }}>{t("riskAreas")}</div>
           <div style={{ ...s.chips, marginTop: 8 }}>
-            {intent.risk_areas.map((r) => (
-              <Badge key={r}>{r}</Badge>
+            {intent.risk_areas.map((r, i) => (
+              <Badge key={`${r}-${i}`}>{r}</Badge>
             ))}
           </div>
         </div>
@@ -97,32 +98,43 @@ function IntentBody({ intent, prId }: { intent: PrIntentRecord; prId: string }) 
   );
 }
 
-export function IntentCard({ prId }: { prId: string }) {
+function EmptyIntent({ prId }: { prId: string }) {
+  const t = useTranslations("intent");
+  const derive = useDeriveIntent(prId);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+      <span style={s.muted}>{t("empty")}</span>
+      <Button size="sm" loading={derive.isPending} onClick={() => derive.mutate({})}>
+        {derive.isPending ? t("deriving") : t("derive")}
+      </Button>
+    </div>
+  );
+}
+
+function IntentContent({ prId }: { prId: string }) {
   const t = useTranslations("intent");
   const { data, isLoading, isError } = usePrIntent(prId);
-  const derive = useDeriveIntent(prId);
-  const intent = data?.intent ?? null;
+
+  if (isLoading) {
+    return (
+      <div style={s.muted} aria-busy="true">
+        {t("loading")}
+      </div>
+    );
+  }
+  if (isError) return <div style={s.muted}>{t("loadError")}</div>;
+  if (data?.intent) return <IntentBody intent={data.intent} prId={prId} />;
+  return <EmptyIntent prId={prId} />;
+}
+
+export function IntentCard({ prId }: { prId: string }) {
+  const t = useTranslations("intent");
 
   return (
     <section aria-label={t("title")}>
       <SectionLabel icon="MessageSquare">{t("title")}</SectionLabel>
       <Card style={{ width: "100%" }}>
-        {isLoading ? (
-          <div style={s.muted} aria-busy="true">
-            {t("loading")}
-          </div>
-        ) : isError ? (
-          <div style={s.muted}>{t("loadError")}</div>
-        ) : intent ? (
-          <IntentBody intent={intent} prId={prId} />
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <span style={s.muted}>{t("empty")}</span>
-            <Button size="sm" loading={derive.isPending} onClick={() => derive.mutate({})}>
-              {derive.isPending ? t("deriving") : t("derive")}
-            </Button>
-          </div>
-        )}
+        <IntentContent prId={prId} />
       </Card>
     </section>
   );
