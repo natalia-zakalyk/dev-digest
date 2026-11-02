@@ -37,3 +37,20 @@ require_free_ports() {
     exit 1
   fi
 }
+
+# Fingerprint of the working tree: HEAD + tracked diff + untracked file contents. Same
+# tree => same hash, so verify.sh can reuse results. Ignored paths (.verify/) do not count.
+tree_hash() {
+  {
+    git rev-parse HEAD 2>/dev/null || echo none
+    git diff HEAD --binary 2>/dev/null
+    git ls-files -o --exclude-standard -z 2>/dev/null \
+      | { xargs -0 -n50 sh -c 'for f; do printf "%s %s\n" "$f" "$(git hash-object -- "$f" 2>/dev/null)"; done' _ || true; }
+  } | shasum | cut -c1-12
+}
+
+# Modules with uncommitted changes, one per line (server, client, reviewer-core, e2e).
+changed_modules() {
+  git status --porcelain 2>/dev/null | cut -c4- | sed 's/^"//' | cut -d/ -f1 \
+    | grep -E '^(server|client|reviewer-core|e2e)$' | sort -u || true
+}

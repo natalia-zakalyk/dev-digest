@@ -39,7 +39,49 @@ const EnvSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
   ),
+  // Prompt-assembly log (metadata only, see specs/prompt-assembly-logging.md). Both are
+  // REQUESTS: they only take effect with NODE_ENV=development on a loopback API_HOST.
+  PROMPT_LOG_VERBOSE: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  PROMPT_LOG_HASHES: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
 });
+
+export type PromptLogConfig = {
+  /** Effective verbose mode (item-level metadata). Fails closed. */
+  verbose: boolean;
+  /** Effective short content hashes; only ever true when `verbose` is. */
+  hashes: boolean;
+  /** Why a requested verbose mode was refused; null when not requested or honored. */
+  ignored: 'production' | 'test' | 'non_loopback_host' | null;
+  /** The operator asked for verbose/hashes (even if refused). */
+  requested: boolean;
+};
+
+/** True only for loopback binds. `0.0.0.0` / `::` / mapped or unknown values are NOT loopback. */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.trim().toLowerCase();
+  if (h === 'localhost' || h === '::1' || h === '[::1]') return true;
+  const m = /^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  return !!m && m.slice(1).every((n) => Number(n) <= 255);
+}
+
+/** Pure gate for the verbose prompt log: dev + loopback only, otherwise off (fail closed). */
+export function resolvePromptLog(
+  nodeEnv: 'development' | 'test' | 'production',
+  host: string,
+  verboseRaw: string | undefined,
+  hashesRaw: string | undefined,
+): PromptLogConfig {
+  const wantVerbose = verboseRaw === 'true';
+  const wantHashes = hashesRaw === 'true';
+  const requested = wantVerbose || wantHashes;
+  if (nodeEnv !== 'development') {
+    return { verbose: false, hashes: false, ignored: requested ? nodeEnv : null, requested };
+  }
+  if (!isLoopbackHost(host)) {
+    return { verbose: false, hashes: false, ignored: requested ? 'non_loopback_host' : null, requested };
+  }
+  return { verbose: wantVerbose, hashes: wantVerbose && wantHashes, ignored: null, requested };
+}
 
 export type AppConfig = {
   databaseUrl: string;
@@ -64,6 +106,8 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /** Prompt-assembly log options (verbose mode is local-development only). */
+  promptLog: PromptLogConfig;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -83,5 +127,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    promptLog: resolvePromptLog(parsed.NODE_ENV, parsed.API_HOST, parsed.PROMPT_LOG_VERBOSE, parsed.PROMPT_LOG_HASHES),
   };
 }

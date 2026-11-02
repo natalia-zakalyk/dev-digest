@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
 import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
@@ -138,8 +139,10 @@ export class ReviewService {
 
     // Fire-and-forget: the HTTP response returns now with the runIds; reviews
     // are persisted as each agent finishes and the client refetches on SSE done.
-    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger).catch((err) => {
-      logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
+    // One correlation id per review trigger: ties together every run's logs and the prompt-assembly records.
+    const correlationId = randomUUID();
+    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger, { correlationId }).catch((err) => {
+      logger?.error({ prId, correlationId, err: (err as Error).message }, 'review: background execution crashed');
     });
 
     return { runs, reviews: [] };

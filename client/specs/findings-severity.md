@@ -25,8 +25,8 @@ Status: implemented · Lab L01 · Data/API: [server/specs/findings-severity.md](
 ## Behaviour (PR list popover)
 - **Hover** a counter (or focus it with the keyboard, or tap it on a touch screen) → tooltip under
   the counters, header "N findings in this run" (rendered uppercase), listing **only that severity's** findings: severity badge,
-  title, category, `file:start-end`, confidence, rationale clamped to 2 lines. Read-only: no buttons (Accept / Reject live only on the finding
-  cards in Review runs; Reject persists as `dismiss`).
+  title, category, `file:start-end`, confidence, rationale clamped to 2 lines. Read-only: no buttons (Accept / Dismiss live only on the finding
+  cards in Review runs; Dismiss persists as `dismiss`).
 - Moving to another counter switches the severity. Leaving the counter closes the tooltip after
   150 ms, so the pointer can move into the tooltip (it stays open while hovered, and scrolls).
   Esc, an outside click or a page scroll close it too.

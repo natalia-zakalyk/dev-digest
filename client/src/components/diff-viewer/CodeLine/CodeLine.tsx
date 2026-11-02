@@ -8,7 +8,11 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
-import { s, lineRowFor, lineSignFor } from "../styles";
+import { s, lineRowFor, lineSignFor, findingBarFor, findingLabelFor, findingLabelStack, findingRail } from "../styles";
+import { SEVERITY_LINE_LABEL } from "../constants";
+import { sortBySeverity, topSeverity, type DiffFindingApi, type LineSeverity } from "../findings";
+import type { FindingRecord } from "@devdigest/shared";
+import { SEV, Icon } from "@devdigest/ui";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
 
@@ -16,11 +20,16 @@ export function CodeLine({
   ln,
   path,
   threads,
+  findings,
+  renderFinding,
   commenting,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
+  /** Review findings anchored to this line. */
+  findings?: FindingRecord[];
+  renderFinding?: DiffFindingApi["renderFinding"];
   commenting?: DiffCommentApi;
 }) {
   const t = useTranslations("shell");
@@ -37,10 +46,15 @@ export function CodeLine({
   const sign = ln.kind === "add" ? "+" : ln.kind === "del" ? "−" : "";
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
   const showAdd = !!target && !composing;
+  const lineFindings = findings && renderFinding ? findings : [];
+  const top = topSeverity(lineFindings);
+  const topColor = top ? SEV[top].c : null;
+  // One label per finding (INFO has none), most severe first.
+  const labelled = sortBySeverity(lineFindings).filter((f) => (f.severity as string) in SEVERITY_LINE_LABEL);
 
   return (
     <div className="dd-code-line" style={cs.rowWrap}>
-      <div style={lineRowFor(ln.kind)}>
+      <div style={{ ...lineRowFor(ln.kind), ...(topColor ? findingBarFor(topColor) : null) }}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && (
             <button
@@ -62,7 +76,29 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
+        {labelled.length > 0 && (
+          <span style={findingLabelStack}>
+            {labelled.map((f) => {
+              const sev = f.severity as LineSeverity;
+              const LabelIcon = Icon[SEV[sev].icon];
+              return (
+                <span key={f.id} className="mono" style={findingLabelFor(SEV[sev].c)}>
+                  <LabelIcon size={12} aria-hidden />
+                  {t(`diffViewer.severityLine.${SEVERITY_LINE_LABEL[sev]}`)}
+                </span>
+              );
+            })}
+          </span>
+        )}
       </div>
+
+      {renderFinding && lineFindings.length > 0 && (
+        <div style={findingRail}>
+          {sortBySeverity(lineFindings).map((f) => (
+            <React.Fragment key={f.id}>{renderFinding(f)}</React.Fragment>
+          ))}
+        </div>
+      )}
 
       {commenting &&
         commenting.showComments &&

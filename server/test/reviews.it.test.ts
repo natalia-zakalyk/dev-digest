@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient, MockSecretsProvider } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -96,6 +96,16 @@ async function setupRepoAndPr(db: PgFixture['handle']['db'], workspaceId: string
   return { repo: repo!, pr: pr! };
 }
 
+const INTENT_FIXTURE = {
+  intent: 'Adds rate limiting to the API.',
+  in_scope: ['api'],
+  out_of_scope: [],
+  risk_areas: ['public API'],
+  confidence: 'medium',
+};
+const mockLlm = (id: 'openai' | 'anthropic', structured: unknown) =>
+  new MockLLMProvider(id, { structured, structuredBySchema: { Review: structured, IntentClassification: INTENT_FIXTURE } });
+
 d('A2 reviews + agents (Testcontainers pg)', () => {
   let pg: PgFixture;
   let workspaceId: string;
@@ -117,8 +127,13 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
+        // Fully offline: no real secrets (the intent step resolves `review_intent`, default openrouter),
+        // and every provider a run can resolve is a mock that also answers the intent classification.
+        secrets: new MockSecretsProvider(),
         llm: {
-          [provider]: new MockLLMProvider(provider, { structured }),
+          openai: mockLlm('openai', structured),
+          anthropic: mockLlm('anthropic', structured),
+          openrouter: mockLlm('openai', structured),
         },
       },
     });

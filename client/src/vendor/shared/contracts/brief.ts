@@ -13,6 +13,52 @@ export const Intent = z.object({
 });
 export type Intent = z.infer<typeof Intent>;
 
+// ---- Intent layer (derived PR motivation fed to the reviewers) ----
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentBasis = z.enum(['documented', 'inferred']);
+export type IntentBasis = z.infer<typeof IntentBasis>;
+
+export const IntentMethod = z.enum(['llm', 'heuristic']);
+export type IntentMethod = z.infer<typeof IntentMethod>;
+
+export const IntentSourceKind = z.enum([
+  'title',
+  'description',
+  'linked_issue',
+  'linked_doc',
+  'branch',
+  'commits',
+  'file_paths',
+  'diff_stats',
+  'prior_prs',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  fetched: z.boolean(),
+  note: z.string().nullable(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+/** LLM output schema. Every field required (strict json_schema has no optionals). */
+export const IntentClassification = Intent.extend({
+  risk_areas: z.array(z.string()),
+  confidence: IntentConfidence,
+});
+export type IntentClassification = z.infer<typeof IntentClassification>;
+
+/** What reviewer-core receives and renders into every agent's prompt. */
+export const ReviewIntent = Intent.extend({
+  risk_areas: z.array(z.string()),
+  confidence: IntentConfidence,
+  basis: IntentBasis,
+});
+export type ReviewIntent = z.infer<typeof ReviewIntent>;
+
 // ---- Blast radius ----
 export const ChangedSymbol = z.object({
   name: z.string(),
@@ -78,7 +124,8 @@ export const PrHistory = z.object({
 export type PrHistory = z.infer<typeof PrHistory>;
 
 // ---- Smart Diff ----
-export const SmartDiffRole = z.enum(['core', 'wiring', 'boilerplate']);
+// Enum order = display order of the groups in the Files changed tab.
+export const SmartDiffRole = z.enum(['core', 'tests', 'wiring', 'docs', 'boilerplate']);
 export type SmartDiffRole = z.infer<typeof SmartDiffRole>;
 
 export const SmartDiffFile = z.object({
@@ -87,6 +134,8 @@ export const SmartDiffFile = z.object({
   additions: z.number().int(),
   deletions: z.number().int(),
   finding_lines: z.array(z.number().int()),
+  // Ids of the counted findings on this file (same order as finding_lines, by line then id).
+  finding_ids: z.array(z.string()),
 });
 export type SmartDiffFile = z.infer<typeof SmartDiffFile>;
 
@@ -109,6 +158,11 @@ export const SmartDiff = z.object({
     total_lines: z.number().int(),
     proposed_splits: z.array(ProposedSplit),
   }),
+  /**
+   * tokens_in + tokens_out of the latest review run per agent that this view is built on.
+   * Smart Diff itself spends no model tokens. Absent/null when there is no review run yet.
+   */
+  source_tokens: z.number().int().nullish(),
 });
 export type SmartDiff = z.infer<typeof SmartDiff>;
 

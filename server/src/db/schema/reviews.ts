@@ -80,14 +80,46 @@ export const findings = pgTable(
   }),
 );
 
-export const prIntent = pgTable('pr_intent', {
-  prId: uuid('pr_id')
-    .primaryKey()
-    .references(() => pullRequests.id, { onDelete: 'cascade' }),
-  intent: text('intent').notNull(),
-  inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-});
+/** jsonb element of `pr_intent.sources` (mirrors IntentSource in @devdigest/shared). */
+export interface StoredIntentSource {
+  kind: string;
+  ref: string;
+  fetched: boolean;
+  note: string | null;
+}
+
+export const prIntent = pgTable(
+  'pr_intent',
+  {
+    prId: uuid('pr_id')
+      .primaryKey()
+      .references(() => pullRequests.id, { onDelete: 'cascade' }),
+    intent: text('intent').notNull(),
+    inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    riskAreas: jsonb('risk_areas').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    // Mirrors IntentConfidence / IntentBasis / IntentMethod in @devdigest/shared (contracts/brief.ts).
+    confidence: text('confidence').notNull().default('low'),
+    basis: text('basis').notNull().default('inferred'),
+    method: text('method').notNull().default('llm'),
+    sources: jsonb('sources').$type<StoredIntentSource[]>().notNull().default(sql`'[]'::jsonb`),
+    headSha: text('head_sha'),
+    // Null for heuristic rows, so the next run retries the LLM.
+    inputHash: text('input_hash'),
+    provider: text('provider'),
+    model: text('model'),
+    tokensIn: integer('tokens_in').notNull().default(0),
+    tokensOut: integer('tokens_out').notNull().default(0),
+    // Unknown cost is NULL, never 0 (same rule as agent_runs.cost_usd).
+    costUsd: doublePrecision('cost_usd'),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    confidenceChk: check('pr_intent_confidence_chk', sql`${t.confidence} IN ('high', 'medium', 'low')`),
+    basisChk: check('pr_intent_basis_chk', sql`${t.basis} IN ('documented', 'inferred')`),
+    methodChk: check('pr_intent_method_chk', sql`${t.method} IN ('llm', 'heuristic')`),
+  }),
+);
 
 export const prBrief = pgTable('pr_brief', {
   prId: uuid('pr_id')

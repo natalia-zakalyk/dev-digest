@@ -72,6 +72,7 @@ Per-route rate-limit overrides live on the routes: `POST /pulls/:id/review` 10/m
 | `logLevel` | `LOG_LEVEL`; empty string → default (`silent` in test, else `info`) |
 | `embeddingsEnabled` | `EMBEDDINGS_ENABLED === 'true'` (default **off**) |
 | `repoIntelEnabled` | `REPO_INTEL_ENABLED !== 'false'` (default **on**) |
+| `promptLog` | `{ verbose, hashes, ignored, requested }` from `PROMPT_LOG_VERBOSE` / `PROMPT_LOG_HASHES`; effective only when `NODE_ENV=development` and `API_HOST` is loopback (fail closed) |
 
 API keys are deliberately **not** in `AppConfig` (`config.ts:9-14`) — see §7.
 

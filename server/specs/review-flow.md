@@ -35,7 +35,8 @@ findings → observability rows → reads. Code is the source of truth; line ref
 flowchart TD
   A[executeRuns] --> B["Loading PR diff (fan-out log to all runIds)"]
   B -- error --> F["failAll: every run → failed, trace from buffer, bus complete"]
-  B -- ok --> L{"for each agent (sequential)"}
+  B -- ok --> IN["Deriving PR intent (best-effort, fan-out log, cheap model)"]
+  IN --> L{"for each agent (sequential)"}
   L --> P["resolve LLM provider (container.llm)"]
   P --> RI{"agent.repoIntel !== false?"}
   RI -- yes --> CTX["callers digest · repo map · rank note (best-effort)"]
@@ -52,6 +53,7 @@ flowchart TD
 1. **Diff loading (once for all agents)** — `diff-loader.ts`: `container.git.diff(repo, pull.base,
    pull.headSha)`; if it throws or returns no files, rebuild a unified diff from persisted
    `pr_files.patch` rows. Failure here fails **every** queued run (`failAll`, executor `:78-107`).
+1b. **Intent (once for all agents, best-effort)** — `IntentService.derive` (see [intent-layer.md](intent-layer.md)). Any error is logged as `info` and the agents run without intent; it never fails a run. Result is passed to every `reviewPullRequest({ intent })`.
 2. **Agents run sequentially**; one agent's failure does not stop the others (`:111-138`).
 3. **Provider** — `container.llm(agent.provider)`; a missing key throws `ConfigError` → run `failed`.
 4. **Repo-intel context** (skipped entirely when `agent.repoIntel === false`; each piece swallows
@@ -102,7 +104,7 @@ Write failures in the failure path are swallowed (`.catch(() => undefined)`).
 ## 4. Run trace — `run_traces` (one jsonb doc per run, PK/FK `run_id`, cascade delete)
 
 Upserted by `saveRunTrace`. Shape = `RunTrace` (`contracts/trace.ts:73`):
-- success: `config` (agent, version, provider, model, pr, `source:'local'`), `stats` (duration,
+- success: `intent` (`{method, confidence, cached, provider, model, tokens_in, tokens_out, cost_usd}`, nullish on old traces), `config` (agent, version, provider, model, pr, `source:'local'`), `stats` (duration,
   tokens, `cost_usd`, findings, grounding), `prompt_assembly` (from the engine), `tool_calls` (one
   `review_file` per chunk, average ms), `raw_output`, `memory_pulled: []`, `specs_read: []`, `log`
   (full RunBus buffer incl. shared diff pre-work);
@@ -111,6 +113,10 @@ Upserted by `saveRunTrace`. Shape = `RunTrace` (`contracts/trace.ts:73`):
 
 `GET /runs/:id/trace` returns the stored doc cast (not re-parsed) or **404** `Run trace not found`.
 Not workspace-scoped. Fields added to `RunTrace` later must be `.nullish()`.
+
+The trace stores the full prompt text and is NOT the ops log. Per-call prompt metadata (sizes only, never text)
+goes to pino stdout as `prompt.assembled`, tied together by a per-trigger `correlation_id`; see
+[prompt-assembly-logging.md](prompt-assembly-logging.md).
 
 ## 5. Live events — `GET /runs/:id/events` (SSE)
 

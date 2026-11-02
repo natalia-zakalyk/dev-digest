@@ -4,12 +4,17 @@ import { NextIntlClientProvider } from "next-intl";
 import type { PrDetail } from "@/lib/types";
 import prReview from "../../../../../../../../messages/en/prReview.json";
 import runs from "../../../../../../../../messages/en/runs.json";
+import intent from "../../../../../../../../messages/en/intent.json";
 import common from "../../../../../../../../messages/en/common.json";
 
 const nav = vi.hoisted(() => ({ replace: vi.fn(), search: "" }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: nav.replace }),
   useSearchParams: () => new URLSearchParams(nav.search),
+}));
+vi.mock("@/lib/hooks/intent", () => ({
+  usePrIntent: () => ({ data: undefined, isLoading: true, isError: false }),
+  useDeriveIntent: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock("@/lib/hooks/agents", () => ({ useAgents: () => ({ data: [] }) }));
 vi.mock("@/lib/hooks/trace", () => ({ useRunTrace: () => ({ data: undefined, isLoading: false }) }));
@@ -57,7 +62,7 @@ const PR = {
 
 function renderView() {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview, runs, common }}>
+    <NextIntlClientProvider locale="en" messages={{ prReview, runs, common, intent }}>
       <PrDetailView repoId="repo1" number="482" prId="pr1" pr={PR} repoFullName="acme/api" />
     </NextIntlClientProvider>,
   );

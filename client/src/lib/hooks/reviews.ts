@@ -6,6 +6,7 @@ import React from "react";
 import { queryOptions, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "../api";
 import { notify } from "../toast";
+import { prIntentOptions } from "./intent";
 import type {
   FindingActionKind,
   PrReviewComment,
@@ -91,6 +92,8 @@ export function useInvalidatePrRuns(prId: string | null | undefined) {
         void qc.invalidateQueries({ queryKey: prActiveRunsOptions(prId).queryKey });
         void qc.invalidateQueries({ queryKey: prRunsOptions(prId).queryKey });
         void qc.invalidateQueries({ queryKey: prReviewsOptions(prId).queryKey });
+        // A run derives (or reuses) the PR intent — refresh the Overview card.
+        void qc.invalidateQueries({ queryKey: prIntentOptions(prId).queryKey });
       },
     }),
     [qc, prId],

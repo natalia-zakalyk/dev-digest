@@ -189,6 +189,36 @@ export class SimpleGitClient implements GitClient {
     if (!realFull.startsWith(realRoot + sep)) throw new Error(`Refusing to read outside the clone: '${path}'`);
     return readFile(realFull, 'utf8');
   }
+
+  /**
+   * Read a file as committed at `ref` (`git show <ref>:<path>`), so a PR's linked spec is read from the
+   * PR head, not the working tree. The ref must look like a sha/branch name (never an option), the path is
+   * normalised (no absolute paths, no `..`), symlink blobs (mode 120000) are refused and the size is capped.
+   */
+  async readFileAt(repo: RepoRef, ref: string, path: string): Promise<string> {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(ref) || ref.includes('..')) throw new Error(`Invalid git ref: '${ref}'`);
+    const rel = normalizeRepoPath(path);
+    const g = this.git(repo);
+    const entry = (await g.raw(['ls-tree', ref, '--', rel])).trim();
+    if (!entry) throw new Error(`File not found at ${ref}: '${rel}'`);
+    const mode = entry.split(/\s+/)[0];
+    if (mode === '120000') throw new Error(`Refusing to read a symlink: '${rel}'`);
+    if (mode !== '100644' && mode !== '100755') throw new Error(`Not a regular file: '${rel}'`);
+    const size = Number((await g.raw(['cat-file', '-s', `${ref}:${rel}`])).trim());
+    if (!Number.isFinite(size) || size > READ_FILE_AT_MAX_BYTES) throw new Error(`File too large to read: '${rel}'`);
+    return g.raw(['show', `${ref}:${rel}`]);
+  }
+}
+
+/** Cap for `readFileAt` blobs (linked plan/spec docs are small text files). */
+export const READ_FILE_AT_MAX_BYTES = 256 * 1024;
+
+/** Normalise a repo-relative path; reject absolute paths, `..` segments and NULs. */
+export function normalizeRepoPath(path: string): string {
+  if (path.includes('\0') || path.startsWith('/') || path.startsWith('\\')) throw new Error(`Invalid repo path: '${path}'`);
+  const parts = path.split('/').filter((p) => p !== '' && p !== '.');
+  if (parts.length === 0 || parts.some((p) => p === '..')) throw new Error(`Invalid repo path: '${path}'`);
+  return parts.join('/');
 }
 
 function parseBlamePorcelain(raw: string): BlameLine[] {

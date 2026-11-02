@@ -32,6 +32,14 @@ export const s = {
     fontSize: 12,
     color: "var(--text-muted)",
   } satisfies CSSProperties,
+  /** Header dot: the file has review findings (no number; distinct from the comment count). */
+  findingsDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "var(--crit)",
+    flexShrink: 0,
+  } satisfies CSSProperties,
   fileIcon: { color: "var(--text-muted)" } satisfies CSSProperties,
   filePath: {
     fontSize: 13,
@@ -104,3 +112,35 @@ export function lineSignFor(kind: Line["kind"]): CSSProperties {
     flexShrink: 0,
   };
 }
+
+/** Severity bar on the left of a line that carries findings. */
+export function findingBarFor(color: string): CSSProperties {
+  return { boxShadow: `inset 3px 0 0 ${color}` };
+}
+
+/** Right-aligned column of per-finding severity labels (one per finding, stacked). */
+export const findingLabelStack: CSSProperties = {
+  alignSelf: "center",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: 2,
+  marginRight: 10,
+  flexShrink: 0,
+};
+
+/** One severity label: small coloured icon + lowercase word. */
+export function findingLabelFor(color: string): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    color,
+  };
+}
+
+/** Rail for finding cards under a line, aligned like comment threads. */
+export const findingRail: CSSProperties = { margin: "6px 14px 8px 58px", display: "flex", flexDirection: "column", gap: 8 };

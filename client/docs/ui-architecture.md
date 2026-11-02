@@ -94,6 +94,7 @@ Conventions:
 - PR APIs are keyed by the PR **uuid**, routes by PR **number** — the detail page resolves
   number → uuid through the cached `["pulls", repoId]` list (`pulls/[number]/page.tsx:33-36`).
 - `["reviews", prId]` is shared between the PR list's findings popover and the PR detail page.
+- `["reviews", prId, "smart-diff"]` (`hooks/smart-diff.ts`) is deliberately nested under the reviews key: prefix invalidation refreshes the Files changed dots/cards after run/accept/dismiss/delete with no extra code. See [specs/smart-diff.md](../specs/smart-diff.md).
 
 ### Live runs — SSE (`useRunEvents`, `hooks/reviews.ts:224`)
 

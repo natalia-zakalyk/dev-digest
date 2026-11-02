@@ -17,7 +17,7 @@ an export breaks `server` typecheck.
 | `DEFAULT_MAP_THRESHOLD_LINES` | `400` | `review/run.ts` |
 | `DEFAULT_REVIEW_MAX_RETRIES` | `2` | `review/run.ts` |
 | `DEFAULT_REVIEW_MAX_TOKENS` | `16_000` | `review/run.ts` |
-| `assemblePrompt` | `(PromptParts) => { messages: ChatMessage[]; assembly: PromptAssembly }` | `prompt.ts` |
+| `assemblePrompt` | `(PromptParts, { measure? }?) => { messages: ChatMessage[]; assembly: PromptAssembly; sections: PromptSectionMeta[] }` | `prompt.ts` |
 | `wrapUntrusted` | `(label, content) => string` | `prompt.ts` |
 | `groundFindings` | `(Finding[], UnifiedDiff, { source?: 'llm' \| 'scanner' }?) => { kept; dropped: {finding, reason}[] }` | `grounding.ts` |
 | `MAX_FINDING_SPAN_LINES` | `500` | `grounding.ts` |
@@ -41,7 +41,11 @@ Required: `systemPrompt`, `model`, `diff: UnifiedDiff` (parsed, hunks carry new-
 Optional: `strategy` (`'auto'` default | `'single-pass'` | `'map-reduce'`), `skills[]`, `memory[]`,
 `specs[]`, `callers`, `repoMap`, `prDescription`, `task`, `maxRetries`, `maxTokens` (default
 `DEFAULT_REVIEW_MAX_TOKENS`, sent on every LLM call), `mapThresholdLines`,
-`sessionId`, `onEvent(ReviewEvent)`, `checkCancelled()`, `onUsage({tokensIn, tokensOut, costUsd})`.
+`sessionId`, `measure(text) => { tokens, hash? }`, `onPromptAssembled(PromptAssembledEvent)`, `onEvent(ReviewEvent)`, `checkCancelled()`,
+`onUsage({tokensIn, tokensOut, costUsd})`.
+
+Invariant: nothing but metadata leaves via `onPromptAssembled` / `sections` (names, sizes, flags; never prompt text). It fires once per
+chunk, after assembly and before the LLM call. Tokenizing and hashing are injected (`measure`), the core stays pure.
 
 ### `ReviewOutcome` (`review/run.ts:100-118`)
 
@@ -77,10 +81,13 @@ Optional: `strategy` (`'auto'` default | `'single-pass'` | `'map-reduce'`), `ski
    filesystem or env. The only network code is inside `OpenRouterProvider` (an `LLMProvider`
    implementation, used only when the caller injects it).
 6. **Prompt hardening.** Every `assemblePrompt` system message ends with `INJECTION_GUARD`; the
-   diff and all repo/author-derived slots (PR description, repo map, specs, callers) are wrapped
+   diff and all repo/author-derived slots (PR description, derived intent, repo map, specs, callers) are wrapped
    with `wrapUntrusted`, whose content cannot contain a real opening or closing `untrusted` tag
    (any case, whitespace or attributes). The diff section is
    always last. Empty optional slots produce no section. PR description is capped at 4000 chars.
+   The optional derived `intent` (`ReviewInput.intent`, computed by the caller) renders as `## PR intent (derived)` right after the PR
+   description: a trusted rule line ("out-of-scope never exempts code from review"; plus a weak-hint note when `confidence === 'low'`)
+   and the content wrapped as `pr-intent`, capped at 1200 chars; it is present in every map-reduce chunk's prompt and recorded as `PromptAssembly.intent`.
 7. **Deterministic output event.** `toReviewPayload().event` depends only on findings and `failOn`
    (default `'critical'`): none → `APPROVE`, gate tripped → `REQUEST_CHANGES`, else `COMMENT`.
    With `opts.diff`, inline comments anchor only to real new-side lines.
@@ -109,8 +116,10 @@ Run with `npm test` (vitest, `test/**/*.test.ts`); all hermetic — stubbed `LLM
 | `checkCancelled` aborts before LLM call | `test/run.test.ts` — "checkCancelled throwing…" |
 | `onUsage` running totals; partial usage kept when chunk 2 throws (map-reduce) | `test/run.test.ts` — "onUsage reports running totals…" |
 | `sessionId` forwarded to every call | `test/run.test.ts` — "forwards sessionId…" |
+| `sections` metadata and `onPromptAssembled` ordering | not covered yet (tests deferred, see server/specs/prompt-assembly-logging.md) |
 | `INJECTION_GUARD` appended; anti-descoping wording | `test/prompt.test.ts` — "shared injection guard" |
 | PR description: wrapped, before diff, omitted when blank, 4000 cap | `test/prompt.test.ts` — "## PR description" |
+| Derived intent: `pr-intent` wrapper after the description, omitted when absent, low-confidence note, 1200 cap | not covered yet (no new tests this iteration) |
 | Deterministic event + `failOn` policies + default | `test/to-review.test.ts` — "deterministic CI gate" |
 | `countBlockers` / `gateTriggered` | `test/to-review.test.ts` |
 | Inline anchoring (nearest in-diff line, drop when none, legacy fallback) | `test/to-review.test.ts` — "inline comment line anchoring" |
