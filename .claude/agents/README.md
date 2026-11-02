@@ -15,14 +15,15 @@ file and loaded on demand with the `Skill` tool (not preloaded via `skills:`), s
 | [architecture-reviewer](architecture-reviewer.md) | Read-only architecture review of a diff: runs `pnpm lint:arch` and the shared-drift check, then judges untooled rules from its catalog; every finding names a rule and `path:line` | opus | Read, Grep, Glob, Bash (limited by prompt), Skill | `onion-architecture`, `frontend-ui-architecture`, `next-best-practices`, `zod` |
 | [plan-verifier](plan-verifier.md) | Read-only check of the working tree against every item of an approved plan and its spec criteria (met / partial / missing / unknown). Not the product "Plan Verifier" (roadmap L06) | opus | Read, Grep, Glob, Bash (evidence only, by prompt), Skill | `engineering-insights` (read) and plan-named skills only |
 | [doc-writer](doc-writer.md) | Documents implemented features or turns plan/materials into docs with Mermaid diagrams; verifies every claim against code; documentation files only | sonnet | Read, Grep, Glob, Edit, Write, Skill (no Bash) | `mermaid-diagram`, architecture and contract skills |
+| [security-reviewer](security-reviewer.md) | Read-only security review of a diff: traces untrusted input (PR content, skill imports, request bodies, LLM output) to sinks against a repo-specific rule catalog; every finding names a rule and `path:line`; no exploits | opus | Read, Grep, Glob, Bash (read-only by prompt), Skill | `security`, `fastify-best-practices`, `drizzle-orm-patterns`, `engineering-insights` (read) |
 
 | [brainstorm](brainstorm.md) | Read-only option generator before planning: 3 genuinely different designs with repo evidence, weighted comparison, one recommendation; writes nothing. Can run as Best-of-N in parallel | opus | Read, Grep, Glob, Skill | `engineering-insights` (read) and layer skills to judge fit (see file) |
 | [investigator](investigator.md) | Read-only codebase lookup for narrow "search and trace" questions about this repo only (definitions, usages, import chains, impact of a change); no web, never asks the user, no fixes | sonnet | Read, Grep, Glob, Bash (read-only by prompt) | none |
 | [insight-curator](insight-curator.md) | Read-only helper for the monthly `INSIGHTS*.md` prune: finds duplicates, contradictions and stale entries, proposes keep / merge / prune / promote with exact line text | sonnet | Read, Grep, Glob, Skill | `engineering-insights` (read) |
 
 The implementer does no review beyond its own typecheck and tests. Architecture review is owned by
-`architecture-reviewer`, plan coverage by `plan-verifier`. **Security review** still has no agent here
-(use `/pr-self-review` or `/code-review`); the implementer hands off areas to look at.
+`architecture-reviewer`, plan coverage by `plan-verifier`. **Security review** is owned by
+`security-reviewer` (the implementer hands off areas to look at).
 
 ## Workflow
 
@@ -39,8 +40,10 @@ flowchart LR
   approve --> implementer
   implementer -->|report| testWriter[test-writer]
   testWriter -->|test report| archReviewer[architecture-reviewer]
+  testWriter -->|test report| secReviewer[security-reviewer]
   testWriter -->|test report| planVerifier[plan-verifier]
   archReviewer --> docWriter[doc-writer]
+  secReviewer --> docWriter
   planVerifier --> docWriter
   docWriter --> docs([docs updated])
   docs -. periodic, monthly prune .-> curator[insight-curator]
@@ -48,7 +51,7 @@ flowchart LR
 ```
 
 The main session chains the agents (none can spawn another). `plan-verifier` runs after `test-writer`
-so the new tests count as evidence; `architecture-reviewer` and `plan-verifier` are independent and
+so the new tests count as evidence; `architecture-reviewer`, `security-reviewer` and `plan-verifier` are independent and
 can run in parallel. `brainstorm`, `investigator` and `insight-curator` are optional helpers outside the
 main chain: `brainstorm` runs before `planner` when the design choice matters (several instances can run in
 parallel as Best-of-N and be compared); `investigator` answers a narrow repo-only lookup for the planner or

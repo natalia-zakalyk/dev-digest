@@ -19,6 +19,7 @@ does, the card moves into a 2-column row). `PrDetailView` passes `prId`.
 | empty (`intent: null`) | explanation + **Derive intent** button (POST) |
 | loaded | blockquote with the intent; IN SCOPE / OUT OF SCOPE lists (an empty out-of-scope shows "Nothing explicitly excluded."); RISK AREAS badges; footer with confidence badge, sources ("From description · docs/plans/x.md · issue #123"), `{model} · {date}` |
 | `confidence: low` | warning note "Low confidence: inferred from branch, commits and files" (icon + text, `role="note"`) |
+| a linked issue/doc in `sources` has `fetched: false` | warning note "N links from the description could not be read (refs), so this intent may be missing context." (`role="note"`) |
 | `stale: true` | note "The PR head moved since this intent was derived." + **Refresh** (POST `force:true`) |
 | `method: heuristic` | hint "Fallback (no model)..." |
 

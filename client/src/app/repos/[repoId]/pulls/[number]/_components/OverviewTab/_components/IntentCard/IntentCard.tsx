@@ -8,7 +8,7 @@ import { Badge, Button, Card, SectionLabel } from "@devdigest/ui";
 import type { PrIntentRecord } from "@devdigest/shared";
 import { useDeriveIntent, usePrIntent } from "@/lib/hooks/intent";
 import { INTENT_CONFIDENCE_COLORS } from "./constants";
-import { shortDate, visibleSources } from "./helpers";
+import { shortDate, skippedLinks, visibleSources } from "./helpers";
 import { s } from "./styles";
 
 function ScopeList({ label, items, emptyText }: { label: string; items: string[]; emptyText?: string }) {
@@ -35,6 +35,7 @@ function IntentBody({ intent, prId }: { intent: PrIntentRecord; prId: string }) 
   const derive = useDeriveIntent(prId);
   const confidence = INTENT_CONFIDENCE_COLORS[intent.confidence];
   const sources = visibleSources(intent.sources);
+  const skipped = skippedLinks(intent.sources);
 
   return (
     <>
@@ -60,6 +61,13 @@ function IntentBody({ intent, prId }: { intent: PrIntentRecord; prId: string }) 
         <div role="note" style={s.notice}>
           <Badge icon="AlertTriangle" color="var(--warn)" bg="var(--warn-bg)">
             {t("lowConfidenceHint")}
+          </Badge>
+        </div>
+      )}
+      {skipped.length > 0 && (
+        <div role="note" style={s.notice}>
+          <Badge icon="AlertTriangle" color="var(--warn)" bg="var(--warn-bg)">
+            {t("linksSkipped", { count: skipped.length, refs: skipped.join(", ") })}
           </Badge>
         </div>
       )}

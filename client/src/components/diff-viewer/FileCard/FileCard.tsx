@@ -59,9 +59,17 @@ export function FileCard({
   defaultCollapsed?: boolean;
 }) {
   const t = useTranslations("shell");
+  const fileFindings = findings?.byPath.get(file.path) ?? NO_FINDINGS;
+  // A finding forces the card open, even in a collapsed group or past the size limit, so it is never hidden.
   const [open, setOpen] = React.useState(
-    !defaultCollapsed && (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    fileFindings.length > 0 ||
+      (!defaultCollapsed && (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES)
   );
+  // Findings load separately from the files (e.g. after Run review), so open the card when they arrive too.
+  const hasFindings = fileFindings.length > 0;
+  React.useEffect(() => {
+    if (hasFindings) setOpen(true);
+  }, [hasFindings]);
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
 
   // Group this file's comments into threads, then split into ones we can anchor
@@ -76,7 +84,6 @@ export function FileCard({
   }, [comments, file.path, lines]);
 
   // Findings anchored to a rendered line vs. ones whose line isn't in this patch.
-  const fileFindings = findings?.byPath.get(file.path) ?? NO_FINDINGS;
   const { matched: matchedFindings, unmatched: unanchored } = React.useMemo(() => {
     const renderedKeys = new Set<string>();
     for (const ln of lines) for (const k of keysForLine(ln)) renderedKeys.add(k);

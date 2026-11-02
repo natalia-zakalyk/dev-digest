@@ -28,3 +28,6 @@ export const SOURCE_MESSAGE_KEY = {
   diff_stats: "diffStats",
   prior_prs: "priorPrs",
 } as const;
+
+/** Source kinds that come from links in the PR description (can fail to load). */
+export const LINKED_SOURCE_KINDS = ["linked_issue", "linked_doc"] as const;

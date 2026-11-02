@@ -101,4 +101,23 @@ describe("DiffViewer findings", () => {
     for (const b of screen.getAllByRole("button")) expect(b).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
   });
+
+  it("opens a file with findings even when defaultCollapsed, and keeps the clean one closed", () => {
+    renderViewer({ files: FILES, defaultCollapsed: true, findings: api([finding({})]) });
+    expect(screen.getByRole("button", { name: /src\/a\.ts/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /src\/clean\.ts/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("finding-f1")).toBeInTheDocument();
+  });
+
+  it("opens a collapsed file when its findings arrive after mount", () => {
+    const view = (props: React.ComponentProps<typeof DiffViewer>) => (
+      <NextIntlClientProvider locale="en" messages={{ shell, common }}>
+        <DiffViewer {...props} />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(view({ files: FILES, defaultCollapsed: true }));
+    expect(screen.getByRole("button", { name: /src\/a\.ts/ })).toHaveAttribute("aria-expanded", "false");
+    rerender(view({ files: FILES, defaultCollapsed: true, findings: api([finding({})]) }));
+    expect(screen.getByRole("button", { name: /src\/a\.ts/ })).toHaveAttribute("aria-expanded", "true");
+  });
 });

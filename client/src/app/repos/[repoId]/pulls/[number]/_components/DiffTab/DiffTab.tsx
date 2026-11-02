@@ -39,7 +39,7 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
   // Comments start hidden so the diff is clean by default — toggle to reveal.
   const [showComments, setShowComments] = React.useState(false);
 
-  // Findings stay visible by default (P1); the toolbar button hides/shows them together with comments.
+  // Findings stay visible by default (P1); their own toolbar button hides/shows them.
   const [showFindings, setShowFindings] = React.useState(true);
 
   const commentCount = comments?.length ?? 0;
@@ -83,23 +83,28 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
     for (const list of byPath.values()) n += list.length;
     return n;
   }, [byPath]);
-  const anyShown = showComments || showFindings;
-  const toggleCount = commentCount + findingCount;
 
   const toolbar = (
     <>
       {smartDiff && <OrderToggle order={order} onChange={setOrder} />}
-      {toggleCount > 0 && (
+      {commentCount > 0 && (
         <Button
           kind="ghost"
           size="sm"
-          icon={anyShown ? "EyeOff" : "Eye"}
-          onClick={() => {
-            setShowComments(!anyShown);
-            setShowFindings(!anyShown);
-          }}
+          icon={showComments ? "EyeOff" : "Eye"}
+          onClick={() => setShowComments((v) => !v)}
         >
-          {anyShown ? t("hideCommentsAndFindings") : t("showCommentsAndFindings")} ({toggleCount})
+          {showComments ? t("hideComments") : t("showComments")} ({commentCount})
+        </Button>
+      )}
+      {findingCount > 0 && (
+        <Button
+          kind="ghost"
+          size="sm"
+          icon={showFindings ? "EyeOff" : "Eye"}
+          onClick={() => setShowFindings((v) => !v)}
+        >
+          {showFindings ? t("hideFindings") : t("showFindings")} ({findingCount})
         </Button>
       )}
     </>

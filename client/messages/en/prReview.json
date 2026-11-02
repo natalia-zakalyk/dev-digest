@@ -64,8 +64,10 @@
   },
   "diffTab": {
     "title": "Files changed · {count, plural, one {# file} other {# files}}",
-    "showCommentsAndFindings": "Show comments & findings",
-    "hideCommentsAndFindings": "Hide comments & findings",
+    "showComments": "Show comments",
+    "hideComments": "Hide comments",
+    "showFindings": "Show findings",
+    "hideFindings": "Hide findings",
     "postFailed": "Couldn't post the comment to GitHub."
   },
   "smartDiff": {

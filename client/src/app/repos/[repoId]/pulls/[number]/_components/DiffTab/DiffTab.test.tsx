@@ -158,10 +158,11 @@ describe("DiffTab smart diff", () => {
     await waitFor(() => expect(m.post).toHaveBeenCalledWith("/findings/f1/dismiss", undefined));
   });
 
-  it("one toolbar button hides/shows findings and comments together; the dot and counter stay", async () => {
+  it("a findings-only button hides/shows findings; no comments button without comments; the dot and counter stay", async () => {
     mount();
-    // findings only (no comments) still render the button, with the findings count
-    const hide = await screen.findByRole("button", { name: "Hide comments & findings (2)" });
+    // findings only (no comments): just the findings button, with the findings count
+    const hide = await screen.findByRole("button", { name: "Hide findings (2)" });
+    expect(screen.queryByRole("button", { name: /comments/i })).not.toBeInTheDocument();
     expect(screen.getByText("Off by one")).toBeInTheDocument();
 
     fireEvent.click(hide);
@@ -171,9 +172,9 @@ describe("DiffTab smart diff", () => {
     expect(screen.getAllByRole("img", { name: "Has review findings" }).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("2 files with findings")).toHaveTextContent("● 2");
 
-    fireEvent.click(screen.getByRole("button", { name: "Show comments & findings (2)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show findings (2)" }));
     expect(screen.getByText("Off by one")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide comments & findings (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide findings (2)" })).toBeInTheDocument();
   });
 
   it("refetches smart-diff when the PR's reviews are invalidated", async () => {

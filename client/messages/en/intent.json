@@ -11,6 +11,7 @@
     "low": "low"
   },
   "lowConfidenceHint": "Low confidence: inferred from branch, commits and files",
+  "linksSkipped": "{count, plural, one {A link} other {# links}} from the description could not be read ({refs}), so this intent may be missing context.",
   "stale": "The PR head moved since this intent was derived.",
   "refresh": "Refresh",
   "derive": "Derive intent",
