@@ -2,6 +2,7 @@ import {
   PrNotImported,
   RepoNotImported,
   type AgentInput,
+  type BlastInput,
   type Clock,
   type ConventionInput,
   type DevDigestApi,
@@ -44,6 +45,21 @@ export class FakeApi implements DevDigestApi {
   reviews: ReviewInput[] = [];
   runsByPoll: RunInput[][] = [[run({ status: 'done' })]];
   started: StartedRun = { runId: 'run-1', agentId: 'a1', agentName: 'security-reviewer' };
+  blast: BlastInput = {
+    changedSymbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts' }],
+    downstream: [
+      {
+        symbol: 'rateLimit',
+        callers: [{ name: 'listItems', file: 'src/api/items.ts', line: 7 }],
+        endpointsAffected: ['GET /api/public/items'],
+        cronsAffected: [],
+      },
+    ],
+    summary: '1 symbol changed · 1 caller · 1 endpoint',
+    counts: { symbols: 1, callers: 1, endpoints: 1, crons: 0 },
+    degraded: false,
+    reason: null,
+  };
   calls: string[] = [];
   private polls = 0;
 
@@ -79,6 +95,10 @@ export class FakeApi implements DevDigestApi {
   async listConventions() {
     this.calls.push('listConventions');
     return this.conventions;
+  }
+  async getBlast(prId: string) {
+    this.calls.push(`getBlast:${prId}`);
+    return this.blast;
   }
   count(name: string): number {
     return this.calls.filter((c) => c === name).length;

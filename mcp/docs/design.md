@@ -48,6 +48,15 @@ sequenceDiagram
 - Untrusted text is capped (`TEXT_CAPS`: agent name/description, finding file, convention category/evidence path, plus the older title/rationale/suggestion/rule/error caps): `src/constants.ts:10-23`, applied in `src/shape/agents.ts`, `findings.ts`, `conventions.ts`. `list_agents` is also kept under the response cap (`fitToBudget`): `src/shape/agents.ts:21`.
 - One response is capped at 20 000 characters: `src/constants.ts:21`, `src/shape/budget.ts`.
 
+## Flow of `get_blast_radius`
+
+Read-only: resolve repo and PR, one `GET /pulls/:id/blast`, shape. The server owns the analysis (prebuilt repo-intel index, no LLM); `mcp/` only maps and caps it.
+
+- Resolve repo then PR (`PrNotImported` for an unknown PR, same as `get_findings`), call the port, shape: `src/use-cases/get-blast-radius.ts:10-18`. The port method is `getBlast(prId)`: `src/ports.ts:43`.
+- The adapter parses the response with a tolerant local schema (no `@devdigest/shared`), derives missing counts from the lists: `src/api/http-devdigest-api.ts:272`.
+- `shapeBlast` (pure) caps names, paths, endpoint/cron text and list lengths (`BLAST_LIMITS`, `TEXT_CAPS`: `src/constants.ts:30`), maps a degraded index to `reason` + the re-analyze `hint` (a success, not `isError`; MCP never calls resync), and cuts the response under 20 000 chars by dropping trailing callers, then trailing symbols (`truncated:true`): `src/shape/blast.ts:15-24`.
+- Annotations are `openWorldHint:true` because resolving the PR may make the server sync from GitHub: `src/tools/get-blast-radius.ts:16-17`.
+
 ## Rings
 
 Dependencies point inward only. No tool enforces this except `test/layering.test.ts` (`pnpm lint:arch` covers only `server/` and `reviewer-core/`).

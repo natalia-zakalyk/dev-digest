@@ -11,6 +11,7 @@ import { DEFAULT_RETRY_AFTER_SECONDS, TEXT_CAPS } from '../constants.js';
 import { originOf, truncateText } from '../shape/text.js';
 import type {
   AgentInput,
+  BlastInput,
   ConventionInput,
   FindingInput,
   ReviewInput,
@@ -109,6 +110,28 @@ const WireConvention = z.object({
   accepted: z.boolean().nullish(),
 });
 const WireConventions = z.object({ candidates: tolerantList(WireConvention).nullish() });
+const WireBlast = z.object({
+  changed_symbols: tolerantList(z.object({ name: z.string(), file: z.string() })).nullish(),
+  downstream: tolerantList(
+    z.object({
+      symbol: z.string(),
+      callers: tolerantList(z.object({ name: z.string(), file: z.string(), line: z.number() })).nullish(),
+      endpoints_affected: z.array(z.string()).nullish(),
+      crons_affected: z.array(z.string()).nullish(),
+    }),
+  ).nullish(),
+  summary: z.string().nullish(),
+  counts: z
+    .object({
+      symbols: z.number().nullish(),
+      callers: z.number().nullish(),
+      endpoints: z.number().nullish(),
+      crons: z.number().nullish(),
+    })
+    .nullish(),
+  degraded: z.boolean().nullish(),
+  reason: z.string().nullish(),
+});
 const WireErrorBody = z.object({
   error: z.object({ message: z.string().nullish() }).nullish(),
   message: z.string().nullish(),
@@ -244,6 +267,32 @@ export class HttpDevDigestApi implements DevDigestApi {
       WireConventions,
     );
     return (body.candidates ?? []).map(toConvention);
+  }
+
+  async getBlast(prId: string): Promise<BlastInput> {
+    const b = await this.get('GET /pulls/:id/blast', `/pulls/${encodeURIComponent(prId)}/blast`, WireBlast);
+    const changedSymbols = b.changed_symbols ?? [];
+    const downstream = (b.downstream ?? []).map((d) => ({
+      symbol: d.symbol,
+      callers: d.callers ?? [],
+      endpointsAffected: d.endpoints_affected ?? [],
+      cronsAffected: d.crons_affected ?? [],
+    }));
+    // Counts the server did not send are derived from the lists we did get.
+    const sum = (f: (d: (typeof downstream)[number]) => number) => downstream.reduce((n, d) => n + f(d), 0);
+    return {
+      changedSymbols,
+      downstream,
+      summary: b.summary ?? '',
+      counts: {
+        symbols: b.counts?.symbols ?? changedSymbols.length,
+        callers: b.counts?.callers ?? sum((d) => d.callers.length),
+        endpoints: b.counts?.endpoints ?? sum((d) => d.endpointsAffected.length),
+        crons: b.counts?.crons ?? sum((d) => d.cronsAffected.length),
+      },
+      degraded: b.degraded ?? false,
+      reason: b.reason ?? null,
+    };
   }
 
   // ---- transport ----

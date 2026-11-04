@@ -149,13 +149,24 @@ describe('success results carry structuredContent and the identical text block',
     expect(res.structuredContent).toMatchObject({ total: 1, conventions: [{ evidence: 'a.ts:3' }] });
   });
 
-  it('get_blast_radius makes no API call', async () => {
-    const res = await getBlastRadiusHandler()({ repo: 'acme/shop', pr: 12 });
+  it('get_blast_radius', async () => {
+    const { deps } = setup();
+    const res = await getBlastRadiusHandler(deps)({ repo: 'acme/shop', pr: 12 });
     expectSuccess(res, GET_BLAST_RADIUS.config.outputSchema);
     expect(res.structuredContent).toMatchObject({
-      implemented: false,
-      alternatives: ['get_findings', 'get_conventions'],
+      pr: 12,
+      counts: { callers: 1 },
+      downstream: [{ symbol: 'rateLimit' }],
     });
+  });
+
+  it('get_blast_radius: unknown PR gives the PrNotImported text with isError', async () => {
+    const { deps } = setup();
+    const res = await getBlastRadiusHandler(deps)({ repo: 'acme/shop', pr: 99 });
+    expectError(
+      res,
+      'PR #99 is not imported for Acme/Shop. Open the repo in the DevDigest studio and refresh pull requests, then retry.',
+    );
   });
 });
 
@@ -315,7 +326,7 @@ describe('definitions', () => {
       "Get a repository's accepted coding conventions (rule, category, evidence path:line) to check code against. Empty until conventions are accepted in the DevDigest studio.",
     );
     expect(GET_BLAST_RADIUS.config.description).toBe(
-      'STUB, not implemented yet: will map which parts of the codebase a pull request affects. Returns implemented:false and alternatives now; do not retry.',
+      "Map the blast radius of a pull request: symbols declared in its changed files, who calls them (file:line), and HTTP endpoints and cron jobs that may depend on them. Reads DevDigest's prebuilt code index, no LLM. Call before reviewing or merging a risky change. Needs repo (owner/name) and pr.",
     );
     for (const t of tools) {
       expect(t.config.description.length, t.name).toBeLessThanOrEqual(300);
@@ -334,12 +345,10 @@ describe('definitions', () => {
   });
 
   it('annotations match the spec and no alwaysLoad is set', () => {
-    // list_agents and the stub touch nothing outside the DevDigest API: closed world.
-    for (const t of [LIST_AGENTS, GET_BLAST_RADIUS]) {
-      expect(t.config.annotations).toEqual({ readOnlyHint: true, idempotentHint: true, openWorldHint: false });
-    }
-    // get_findings / get_conventions resolve repo + PR, and the API's GET /repos/:id/pulls may sync from GitHub.
-    for (const t of [GET_FINDINGS, GET_CONVENTIONS]) {
+    // list_agents touches nothing outside the DevDigest API: closed world.
+    expect(LIST_AGENTS.config.annotations).toEqual({ readOnlyHint: true, idempotentHint: true, openWorldHint: false });
+    // These resolve repo + PR, and the API's GET /repos/:id/pulls may sync from GitHub.
+    for (const t of [GET_FINDINGS, GET_CONVENTIONS, GET_BLAST_RADIUS]) {
       expect(t.config.annotations).toEqual({ readOnlyHint: true, idempotentHint: true, openWorldHint: true });
     }
     expect(RUN_AGENT_ON_PR.config.annotations).toEqual({

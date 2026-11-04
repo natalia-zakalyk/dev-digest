@@ -41,7 +41,7 @@ describe('server round trip (in-memory)', () => {
 
     const blast = await c.call('get_blast_radius', { repo: 'acme/shop', pr: 12 });
     expect(blast.isError).toBeUndefined();
-    expect(blast.structuredContent).toMatchObject({ implemented: false });
+    expect(blast.structuredContent).toMatchObject({ pr: 12, degraded: false });
     await c.close();
   });
 

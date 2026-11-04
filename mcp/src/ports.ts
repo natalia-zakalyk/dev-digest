@@ -1,4 +1,4 @@
-import type { AgentInput, ConventionInput, ReviewInput, RunInput } from './shape/types.js';
+import type { AgentInput, BlastInput, ConventionInput, ReviewInput, RunInput } from './shape/types.js';
 
 /** Application-ring ports. Shaped by what the use cases need; implemented over REST in `src/api/`. */
 
@@ -39,6 +39,8 @@ export interface DevDigestApi {
   listReviews(prId: string): Promise<ReviewInput[]>;
   /** `GET /repos/:id/conventions`, all statuses; the domain keeps `accepted`. */
   listConventions(repoId: string): Promise<ConventionInput[]>;
+  /** `GET /pulls/:id/blast`: the prebuilt-index map. Read-only; never triggers a re-index. */
+  getBlast(prId: string): Promise<BlastInput>;
 }
 
 /** Time port so the wait loop is testable with a fake clock. */

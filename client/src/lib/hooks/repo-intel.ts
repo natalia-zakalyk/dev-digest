@@ -44,6 +44,8 @@ export function useResyncRepoIntel(repoId: string | null | undefined) {
     mutationFn: () => api.post<{ status: string }>(`/repos/${repoId}/resync`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["repo-intel-state", repoId] });
+      // The PR blast-radius card reads the same index.
+      qc.invalidateQueries({ queryKey: ["blast"] });
     },
   });
 }

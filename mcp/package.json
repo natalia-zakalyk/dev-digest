@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "start": "tsx src/index.ts",
-    "inspect": "npx @modelcontextprotocol/inspector@0.22.0 tsx src/index.ts"
+    "inspect": "npx @modelcontextprotocol/inspector@2.13.0 tsx src/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",

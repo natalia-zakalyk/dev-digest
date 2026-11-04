@@ -1,4 +1,7 @@
 {
+  "title": "Blast radius",
+  "loading": "Loading blast radius…",
+  "loadError": "Couldn't load the blast radius.",
   "stat": {
     "symbols": "symbols",
     "callers": "callers",
@@ -7,12 +10,44 @@
   },
   "view": {
     "tree": "tree",
-    "graph": "graph"
+    "graph": "graph",
+    "label": "View"
   },
-  "callerCount": "{count} callers",
-  "noDownstream": "{count} changed symbol(s), no downstream callers found.",
+  "callerCount": "{count, plural, one {# caller} other {# callers}}",
+  "noDownstream": "{count, plural, one {# changed symbol, no downstream callers found.} other {# changed symbols, no downstream callers found.}}",
   "graph": {
     "empty": "No downstream callers to graph.",
-    "ariaLabel": "Blast radius graph"
+    "ariaLabel": "Blast radius graph",
+    "summary": "{symbols, plural, one {# changed symbol} other {# changed symbols}}, {callers, plural, one {# caller} other {# callers}}, {targets, plural, one {# endpoint or cron job} other {# endpoints and cron jobs}}.",
+    "symbolsNotDrawn": "{count, plural, one {# more symbol with callers is not drawn.} other {# more symbols with callers are not drawn.}}",
+    "callersNotDrawn": "{count, plural, one {# caller is not drawn.} other {# callers are not drawn.}}",
+    "targetsNotDrawn": "{count, plural, one {# endpoint or cron job is not drawn.} other {# endpoints and cron jobs are not drawn.}}",
+    "attribution": "Some endpoints and cron jobs are linked to the changed symbol, not to a single caller, because this server does not report them per caller.",
+    "column": {
+      "symbols": "{count, plural, one {# SYMBOL} other {# SYMBOLS}}",
+      "callers": "{count, plural, one {# CALLER} other {# CALLERS}}",
+      "endpoints": "{count, plural, one {# ENDPOINT} other {# ENDPOINTS}}",
+      "crons": "{count, plural, one {# CRON} other {# CRONS}}",
+      "symbolsOf": "{drawn} OF {total, plural, one {# SYMBOL} other {# SYMBOLS}}",
+      "callersOf": "{drawn} OF {total, plural, one {# CALLER} other {# CALLERS}}",
+      "endpointsOf": "{drawn} OF {total, plural, one {# ENDPOINT} other {# ENDPOINTS}}",
+      "cronsOf": "{drawn} OF {total, plural, one {# CRON} other {# CRONS}}"
+    }
+  },
+  "noCallersRest": "{count, plural, one {# more changed symbol with no callers found.} other {# more changed symbols with no callers found.}}",
+  "resync": "Re-analyze",
+  "degraded": {
+    "title": "Incomplete",
+    "reason": {
+      "flag_off": "Repo analysis is switched off (REPO_INTEL_ENABLED=false), so no blast radius is available.",
+      "index_failed": "The last repo analysis failed, so no blast radius is available.",
+      "index_partial": "The repo index is partial: the numbers below may be incomplete.",
+      "repo_too_large": "The repo is too large to analyze fully, so no blast radius is available.",
+      "no_data": "No analysis data for this repo yet."
+    }
+  },
+  "chip": {
+    "endpoint": "Endpoint: {value}",
+    "cron": "Cron job: {value}"
   }
 }

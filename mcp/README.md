@@ -2,7 +2,7 @@
 
 A local, stdio [MCP](https://modelcontextprotocol.io) server that exposes DevDigest's review agents to an MCP client such as Claude Code. It does not touch the database or import from `server/`: it calls the existing REST API on loopback, so the stack must be running (`./scripts/dev.sh`).
 
-Tools (`src/tools/index.ts:13-19`): `list_agents`, `run_agent_on_pr`, `get_findings`, `get_conventions`, `get_blast_radius` (stub, returns `implemented:false`). Contracts: [specs/mcp-server.md](specs/mcp-server.md). Design, rings and the `run_agent_on_pr` flow: [docs/design.md](docs/design.md). Plan: [../docs/plans/mcp-server.md](../docs/plans/mcp-server.md).
+Tools (`src/tools/index.ts:13-19`): `list_agents`, `run_agent_on_pr`, `get_findings`, `get_conventions`, `get_blast_radius` (callers, endpoints and crons a PR affects; reads the server's `GET /pulls/:id/blast`, read-only). Contracts: [specs/mcp-server.md](specs/mcp-server.md). Design, rings and the `run_agent_on_pr` flow: [docs/design.md](docs/design.md). Plan: [../docs/plans/mcp-server.md](../docs/plans/mcp-server.md).
 
 ## Rings
 

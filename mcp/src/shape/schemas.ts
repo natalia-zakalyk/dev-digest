@@ -98,11 +98,37 @@ export const ReviewsResult = z.object({
 });
 export type ReviewsResult = z.infer<typeof ReviewsResult>;
 
-/** `get_blast_radius` stub answer (spec): fixed, no API call, not an error. */
+export const BlastCounts = z.object({
+  symbols: z.number().int(),
+  callers: z.number().int(),
+  endpoints: z.number().int(),
+  crons: z.number().int(),
+});
+export type BlastCounts = z.infer<typeof BlastCounts>;
+
+export const BlastCaller = z.object({ name: z.string(), file: z.string(), line: z.number().int() });
+export type BlastCaller = z.infer<typeof BlastCaller>;
+
+export const BlastDownstream = z.object({
+  symbol: z.string(),
+  callers: z.array(BlastCaller),
+  endpoints_affected: z.array(z.string()),
+  crons_affected: z.array(z.string()),
+});
+export type BlastDownstream = z.infer<typeof BlastDownstream>;
+
+/** `get_blast_radius` answer (spec): the same map the studio's Overview card shows. Object root. */
 export const BlastRadiusResult = z.object({
-  implemented: z.literal(false),
-  message: z.string(),
-  alternatives: z.tuple([z.literal('get_findings'), z.literal('get_conventions')]),
+  repo: z.string(),
+  pr: z.number().int(),
+  summary: z.string(),
+  counts: BlastCounts,
+  degraded: z.boolean(),
+  reason: z.string().optional(),
+  hint: z.string().optional(),
+  changed_symbols: z.array(z.object({ name: z.string(), file: z.string() })),
+  downstream: z.array(BlastDownstream),
+  truncated: z.boolean().optional(),
 });
 export type BlastRadiusResult = z.infer<typeof BlastRadiusResult>;
 

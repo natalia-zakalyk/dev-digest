@@ -243,9 +243,43 @@ describe('listAgents / getConventions / getBlastRadius', () => {
     await expect(getConventions(deps, { repo: 'x/y' })).rejects.toBeInstanceOf(RepoNotImported);
   });
 
-  it('getBlastRadius is a stub and calls no API', () => {
-    const res = getBlastRadius({ repo: 'acme/shop', pr: 12 });
-    expect(res).toMatchObject({ implemented: false, alternatives: ['get_findings', 'get_conventions'] });
-    expect(res.message.length).toBeGreaterThan(0);
+  it('getBlastRadius resolves repo and PR, reads the blast map of that PR id, never starts a run', async () => {
+    const { api, deps } = setup();
+    const res = await getBlastRadius(deps, { repo: 'ACME/shop', pr: 12 });
+    expect(res).toMatchObject({
+      repo: 'Acme/Shop',
+      pr: 12,
+      degraded: false,
+      counts: { symbols: 1, callers: 1, endpoints: 1, crons: 0 },
+      changed_symbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts' }],
+      downstream: [
+        {
+          symbol: 'rateLimit',
+          callers: [{ name: 'listItems', file: 'src/api/items.ts', line: 7 }],
+          endpoints_affected: ['GET /api/public/items'],
+          crons_affected: [],
+        },
+      ],
+    });
+    expect(api.calls).toContain('getBlast:pr-uuid');
+    expect(api.count('startReview')).toBe(0);
+  });
+
+  it('getBlastRadius: unknown PR is PrNotImported, unknown repo is RepoNotImported, no blast call', async () => {
+    const { api, deps } = setup();
+    await expect(getBlastRadius(deps, { repo: 'acme/shop', pr: 99 })).rejects.toBeInstanceOf(PrNotImported);
+    await expect(getBlastRadius(deps, { repo: 'x/y', pr: 12 })).rejects.toBeInstanceOf(RepoNotImported);
+    expect(api.calls.some((c) => c.startsWith('getBlast'))).toBe(false);
+  });
+
+  it('getBlastRadius: a degraded index is a success with the re-analyze hint', async () => {
+    const { api, deps } = setup();
+    api.blast = { ...api.blast, degraded: true, reason: 'index_failed', downstream: [] };
+    const res = await getBlastRadius(deps, { repo: 'acme/shop', pr: 12 });
+    expect(res.degraded).toBe(true);
+    expect(res.reason).toBe('index_failed');
+    expect(res.hint).toBe(
+      'Index incomplete (index_failed): open the repo in the DevDigest studio and run Re-analyze, then retry.',
+    );
   });
 });

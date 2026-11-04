@@ -297,3 +297,63 @@ describe('HttpDevDigestApi failure classes', () => {
     expect(calls[0]!.url).toBe(`${BASE}/pulls/a%2Fb%3Fc/runs`);
   });
 });
+
+describe('HttpDevDigestApi.getBlast', () => {
+  it('GETs /pulls/:id/blast (encoded id, redirect:error) and maps the map; extra keys ignored, malformed items skipped', async () => {
+    const { api, calls } = make({
+      'GET /pulls/p%2F1/blast': () =>
+        json({
+          changed_symbols: [{ name: 'f', file: 'a.ts', kind: 'function' }, { name: 1 }],
+          downstream: [
+            {
+              symbol: 'f',
+              callers: [{ name: 'g', file: 'b.ts', line: 4 }, 'junk'],
+              endpoints_affected: ['GET /x'],
+              crons_affected: ['0 * * * *'],
+            },
+          ],
+          summary: 's',
+          counts: { symbols: 1, callers: 1, endpoints: 1, crons: 1 },
+          degraded: true,
+          reason: 'index_partial',
+          extra: 1,
+        }),
+    });
+    expect(await api.getBlast('p/1')).toEqual({
+      changedSymbols: [{ name: 'f', file: 'a.ts' }],
+      downstream: [
+        {
+          symbol: 'f',
+          callers: [{ name: 'g', file: 'b.ts', line: 4 }],
+          endpointsAffected: ['GET /x'],
+          cronsAffected: ['0 * * * *'],
+        },
+      ],
+      summary: 's',
+      counts: { symbols: 1, callers: 1, endpoints: 1, crons: 1 },
+      degraded: true,
+      reason: 'index_partial',
+    });
+    expect(calls[0]!.init?.redirect).toBe('error');
+    expect(calls[0]!.init?.method).toBe('GET');
+  });
+
+  it('tolerates an empty body: defaults and derived counts', async () => {
+    const { api } = make({
+      'GET /pulls/p1/blast': () => json({ downstream: [{ symbol: 'f', callers: [{ name: 'g', file: 'b.ts', line: 1 }] }] }),
+    });
+    expect(await api.getBlast('p1')).toMatchObject({
+      summary: '',
+      degraded: false,
+      reason: null,
+      counts: { symbols: 0, callers: 1, endpoints: 0, crons: 0 },
+    });
+  });
+
+  it('404 becomes ApiError; connection refused becomes ApiUnreachable', async () => {
+    const a = make({ 'GET /pulls/p1/blast': () => json({ error: { message: 'Pull request not found' } }, { status: 404 }) });
+    await expect(a.api.getBlast('p1')).rejects.toBeInstanceOf(ApiError);
+    const b = make({ 'GET /pulls/p1/blast': () => new Error('ECONNREFUSED') });
+    await expect(b.api.getBlast('p1')).rejects.toBeInstanceOf(ApiUnreachable);
+  });
+});

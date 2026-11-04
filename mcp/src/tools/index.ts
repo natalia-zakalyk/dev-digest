@@ -24,5 +24,5 @@ export function registerTools(server: McpServer, deps: Deps): void {
   server.registerTool(RUN_AGENT_ON_PR.name, RUN_AGENT_ON_PR.config, runAgentOnPrHandler(deps));
   server.registerTool(GET_FINDINGS.name, GET_FINDINGS.config, getFindingsHandler(deps));
   server.registerTool(GET_CONVENTIONS.name, GET_CONVENTIONS.config, getConventionsHandler(deps));
-  server.registerTool(GET_BLAST_RADIUS.name, GET_BLAST_RADIUS.config, getBlastRadiusHandler());
+  server.registerTool(GET_BLAST_RADIUS.name, GET_BLAST_RADIUS.config, getBlastRadiusHandler(deps));
 }

@@ -1,17 +1,18 @@
-import type { BlastRadiusResult } from '../shape/index.js';
-
-/** Stub with the final input contract (spec `get_blast_radius`): no API call, not an error. */
+import { shapeBlast, type BlastRadiusResult } from '../shape/index.js';
+import type { Deps } from './deps.js';
 
 export interface GetBlastRadiusArgs {
   repo: string;
   pr: number;
 }
 
-export function getBlastRadius(_args: GetBlastRadiusArgs): BlastRadiusResult {
-  return {
-    implemented: false,
-    message:
-      'get_blast_radius is not implemented yet. Do not retry. Use get_findings for review results or get_conventions for the repo rules.',
-    alternatives: ['get_findings', 'get_conventions'],
-  };
+/** Resolve repo and PR (`PrNotImported` for an unknown PR), read the server's blast map, shape it. Read-only. */
+export async function getBlastRadius(
+  deps: Pick<Deps, 'api' | 'resolve'>,
+  args: GetBlastRadiusArgs,
+): Promise<BlastRadiusResult> {
+  const repo = await deps.resolve.repo(args.repo);
+  const pull = await deps.resolve.pull(repo, args.pr);
+  const input = await deps.api.getBlast(pull.id);
+  return shapeBlast(repo.fullName, pull.number, input);
 }

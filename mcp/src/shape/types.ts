@@ -57,3 +57,32 @@ export interface ConventionInput {
   /** Raw API value: pending | accepted | rejected. */
   status: string;
 }
+
+export interface BlastSymbolInput {
+  name: string;
+  file: string;
+}
+
+export interface BlastCallerInput {
+  name: string;
+  file: string;
+  line: number;
+}
+
+export interface BlastDownstreamInput {
+  symbol: string;
+  callers: readonly BlastCallerInput[];
+  endpointsAffected: readonly string[];
+  cronsAffected: readonly string[];
+}
+
+/** `GET /pulls/:id/blast` as the port hands it over (repo-derived strings are untrusted). */
+export interface BlastInput {
+  changedSymbols: readonly BlastSymbolInput[];
+  downstream: readonly BlastDownstreamInput[];
+  summary: string;
+  counts: { symbols: number; callers: number; endpoints: number; crons: number };
+  degraded: boolean;
+  /** Raw API value (`flag_off | index_failed | index_partial | repo_too_large | no_data`); the domain checks it. */
+  reason: string | null;
+}

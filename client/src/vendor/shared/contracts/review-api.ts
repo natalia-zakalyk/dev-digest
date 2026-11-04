@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { IntentMethod, IntentSource, ReviewIntent, SmartDiff } from './brief.js';
+import { BlastCaller, BlastRadius, DownstreamImpact, IntentMethod, IntentSource, ReviewIntent, SmartDiff } from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -83,3 +83,40 @@ export type DeriveIntentBody = z.infer<typeof DeriveIntentBody>;
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;
 export type SmartDiffResponse = z.infer<typeof SmartDiffResponse>;
+
+/** Why a blast-radius answer is degraded (index missing, partial or switched off). */
+export const BlastDegradedReason = z.enum([
+  'flag_off',
+  'index_failed',
+  'index_partial',
+  'repo_too_large',
+  'no_data',
+]);
+export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
+
+export const BlastCounts = z.object({
+  symbols: z.number().int(),
+  callers: z.number().int(),
+  endpoints: z.number().int(),
+  crons: z.number().int(),
+});
+export type BlastCounts = z.infer<typeof BlastCounts>;
+
+/**
+ * A caller with the endpoints/crons reached THROUGH ITS OWN FILE (repo-intel `factsByFile`).
+ * Optional: older servers send only the symbol-level union in `endpoints_affected` of the group.
+ */
+export const BlastCallerWithFacts = BlastCaller.extend({
+  endpoints_affected: z.array(z.string()).optional(),
+  crons_affected: z.array(z.string()).optional(),
+});
+export type BlastCallerWithFacts = z.infer<typeof BlastCallerWithFacts>;
+
+/** Blast radius of a PR (`GET /pulls/:id/blast`): the BlastRadius map plus counts and index state. */
+export const BlastRadiusResponse = BlastRadius.extend({
+  downstream: z.array(DownstreamImpact.extend({ callers: z.array(BlastCallerWithFacts) })),
+  counts: BlastCounts,
+  degraded: z.boolean(),
+  reason: BlastDegradedReason.nullish(),
+});
+export type BlastRadiusResponse = z.infer<typeof BlastRadiusResponse>;
