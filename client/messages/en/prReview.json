@@ -3,6 +3,12 @@
     "accepted": "accepted",
     "dismissed": "rejected",
     "suggestedFix": "Suggested fix",
+    "severityWord": {
+      "blocker": "blocker",
+      "warning": "warning",
+      "suggestion": "suggestion",
+      "info": "info"
+    },
     "accept": "Accept",
     "dismiss": "Dismiss",
     "learn": "Learn",

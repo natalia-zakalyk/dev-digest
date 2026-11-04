@@ -110,6 +110,9 @@ for m in $MODULES; do
     reviewer-core)
       want typecheck && run_check reviewer-core typecheck "npm run typecheck"
       want test      && run_check reviewer-core test "npm test" ;;
+    mcp)
+      want typecheck && run_check mcp typecheck "npm run typecheck"
+      want test      && run_check mcp test "npm test" ;;
     e2e)
       want typecheck && run_check e2e typecheck "npm run typecheck" ;;
     *) echo "unknown module: $m" >&2; exit 2 ;;

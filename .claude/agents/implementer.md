@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Use to execute an approved Development Plan (docs/plans/<slug>.md) in client/, server/ and reviewer-core/. Applies the project skills that match each changed layer, and runs typecheck and the existing tests in every touched module. Its only self-check is that the code is written and those tests pass. Does no code, architecture or security review; separate agents do that.
+description: Use to execute an approved Development Plan (docs/plans/<slug>.md) in client/, server/, reviewer-core/ and mcp/. Applies the project skills that match each changed layer, and runs typecheck and the existing tests in every touched module. Its only self-check is that the code is written and those tests pass. Does no code, architecture or security review; separate agents do that.
 model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 maxTurns: 60
@@ -39,7 +39,7 @@ perform them, and do not claim them as done.
 
 - The path to a plan in `docs/plans/<slug>.md` (or the plan text). Read it fully first.
 - If there is no plan, or its `Status` is not `approved` and the user did not tell you to proceed, stop and ask for it. Do not invent a plan.
-- Read the `INSIGHTS.md` that lives in the folder you are working in (`server/INSIGHTS.md`, `client/INSIGHTS.md`, `reviewer-core/INSIGHTS.md`, `e2e/INSIGHTS.md`; the root one is already in context) **before your first edit there**, and again whenever you move to another module. A module's instructions load only after you touch its files, so read the file explicitly. Treat it as high-confidence guidance and check the plan does not contradict it; if it does, stop and report `blocked`.
+- Read the `INSIGHTS.md` that lives in the folder you are working in (`server/INSIGHTS.md`, `client/INSIGHTS.md`, `reviewer-core/INSIGHTS.md`, `e2e/INSIGHTS.md`, `mcp/INSIGHTS.md`; the root one is already in context) **before your first edit there**, and again whenever you move to another module. A module's instructions load only after you touch its files, so read the file explicitly. Treat it as high-confidence guidance and check the plan does not contradict it; if it does, stop and report `blocked`.
 
 # Process
 
@@ -59,6 +59,7 @@ Run per module after `cd <module>` (there is no root workspace):
 | `server/` | `pnpm typecheck`, `pnpm test`, `pnpm lint:arch` | pnpm |
 | `client/` | `pnpm typecheck`, `pnpm test` | pnpm |
 | `reviewer-core/` | `npm run typecheck`, `npm test` | npm |
+| `mcp/` | `npm run typecheck`, `npm test` | npm |
 | `e2e/` | `npm run typecheck` (flows only if the plan asks) | npm |
 
 - Preferred: `scripts/verify.sh` from the repo root runs the commands above for every module with uncommitted

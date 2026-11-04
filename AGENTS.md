@@ -13,13 +13,14 @@ Server: Fastify 5 + Drizzle 0.38. Client: Next.js 15 (App Router) + React 19 + T
 | `server/` | `@devdigest/api` — Fastify API + DB + repo-intel | pnpm | 3001 |
 | `client/` | `@devdigest/web` — Next.js studio | pnpm | 3000 |
 | `reviewer-core/` | `@devdigest/reviewer-core` — pure review engine | **npm** | — |
+| `mcp/` | `@devdigest/mcp` — stdio MCP server exposing review agents to MCP clients (calls the REST API; registered in `.mcp.json`) | **npm** | — |
 | `e2e/` | `@devdigest/e2e` — agent-browser flows | **npm** | — |
 | `scripts/` | `dev.sh` (full local stack), `e2e.sh` (hermetic e2e) | | |
 | `docs/` | cross-cutting docs (agent prompts, model choice) | | |
 
 ## Commands
 - Whole stack from zero: `./scripts/dev.sh` (flags: `--no-seed` `--no-client` `--db-only`)
-- Per module: `cd <module>` first — there is **no root package.json / workspace**.
+- Per module: `cd <module>` first — there is **no root package.json / workspace**. `mcp/` is npm like `reviewer-core/` (`npm run typecheck`, `npm test`).
 - Before finishing any change: `typecheck` + `test` in every module you touched.
 
 ## Non-default conventions

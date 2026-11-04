@@ -14,6 +14,7 @@ aliases, not published modules):
 | `server/`        | `@devdigest/api`            | Fastify API + Drizzle/Postgres (pgvector)             | 3001 |
 | `client/`        | `@devdigest/web`            | Next.js 15 web app (the studio)                       | 3000 |
 | `reviewer-core/` | `@devdigest/reviewer-core`  | Pure review engine: diff → prompt → LLM → findings    | —    |
+| `mcp/`           | `@devdigest/mcp`            | Local stdio MCP server: review agents for MCP clients | —    |
 | `e2e/`           | `@devdigest/e2e`            | Deterministic browser e2e (agent-browser)             | —    |
 | `server/src/vendor/shared` | `@devdigest/shared` | Zod contracts shared across every package             | —    |
 
@@ -134,6 +135,7 @@ cd ../client && pnpm install && pnpm dev               # web on :3000
 (unit/integration split: `pnpm exec vitest run --exclude '**/*.it.test.ts'` / `pnpm exec vitest run .it.test`)
 `client/`: `dev` · `build` · `start` · `test` · `typecheck`
 `reviewer-core/` (npm): `test` · `typecheck`
+`mcp/` (npm): `test` · `typecheck` · `start`
 `e2e/` (npm): `test` · `e2e:hermetic` · `typecheck`
 repo root: `./scripts/dev.sh` · `./scripts/e2e.sh` · `./scripts/check-shared-drift.sh` (server ≡ client `vendor/shared`) · `./scripts/install-git-hooks.sh` (pre-push self-review gate)
 
@@ -154,6 +156,14 @@ path filter — full strategy in **[`TESTING.md`](TESTING.md)**.
 Server tests split by filename: `*.it.test.ts` are DB-backed (testcontainers
 Postgres); everything else is hermetic. The browser e2e flows live in
 [`e2e/`](e2e/README.md) and run deterministically (no LLM).
+
+## MCP server
+
+[`mcp/`](mcp/README.md) is a local stdio [MCP](https://modelcontextprotocol.io) server that lets Claude Code list
+review agents, run one on a PR and read findings or conventions. It only calls the REST API on loopback, so start
+the stack first (`./scripts/dev.sh`) and run `cd mcp && npm ci` once. [`.mcp.json`](.mcp.json) registers it as
+`devdigest` when Claude Code starts in the repo root (approve the project server when prompted). Design:
+[`mcp/docs/design.md`](mcp/docs/design.md).
 
 ## Before opening a PR — self-review gate
 

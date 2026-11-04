@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button } from "@devdigest/ui";
-import { DiffViewer, type DiffCommentApi } from "@/components/diff-viewer";
+import { DiffViewer, type DiffCommentApi, type RenderFindingCtx } from "@/components/diff-viewer";
 import { usePrComments, useCreatePrComment, usePrReviews } from "@/lib/hooks/reviews";
 import { usePrSmartDiff } from "@/lib/hooks/smart-diff";
 import { notify } from "@/lib/toast";
@@ -22,14 +22,11 @@ interface DiffTabProps {
   files: PrFile[];
   /** Inline commenting is offered only on open PRs (GitHub rejects otherwise). */
   canComment?: boolean;
-  /** owner/repo + head sha for the finding cards' GitHub deep-links. */
-  repoFullName?: string | null;
-  headSha?: string | null;
 }
 
 const NO_FINDINGS: ReadonlyMap<string, FindingRecord[]> = new Map();
 
-export function DiffTab({ prId, filesCount, files, canComment, repoFullName, headSha }: DiffTabProps) {
+export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
   const t = useTranslations("prReview.diffTab");
   const { data: comments } = usePrComments(prId);
   const { data: smartDiff } = usePrSmartDiff(prId);
@@ -70,10 +67,10 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
     () => ({
       byPath,
       showFindings,
-      renderFinding: (f: FindingRecord) =>
-        prId ? <DiffFinding finding={f} prId={prId} repoFullName={repoFullName} headSha={headSha} /> : null,
+      renderFinding: (f: FindingRecord, ctx?: RenderFindingCtx) =>
+        prId ? <DiffFinding finding={f} prId={prId} onClose={ctx?.onClose} /> : null,
     }),
-    [byPath, showFindings, prId, repoFullName, headSha],
+    [byPath, showFindings, prId],
   );
   const groups = React.useMemo(() => (smartDiff ? groupPrFiles(files, smartDiff) : []), [files, smartDiff]);
   const showGroups = !!smartDiff && order === "smart";

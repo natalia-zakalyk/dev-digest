@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Use after code is written (typically after the implementer, in parallel with architecture-reviewer) to review the security of a diff or scope in client/, server/ and reviewer-core/. Read-only. Traces data flow from untrusted input (PR content, skill imports, request bodies, LLM output) to sinks, and judges the rules in its catalog; every finding names a rule with path:line evidence. Does no architecture, style, plan-verification or code-editing work.
+description: Use after code is written (typically after the implementer, in parallel with architecture-reviewer) to review the security of a diff or scope in client/, server/, reviewer-core/ and mcp/. Read-only. Traces data flow from untrusted input (PR content, skill imports, request bodies, LLM output) to sinks, and judges the rules in its catalog; every finding names a rule with path:line evidence. Does no architecture, style, plan-verification or code-editing work.
 model: opus
 tools: Read, Grep, Glob, Bash, Skill
 maxTurns: 30

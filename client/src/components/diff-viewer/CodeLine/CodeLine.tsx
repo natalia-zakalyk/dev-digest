@@ -8,7 +8,15 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
-import { s, lineRowFor, lineSignFor, findingBarFor, findingLabelFor, findingLabelStack, findingRail } from "../styles";
+import {
+  s,
+  lineRowFor,
+  lineSignFor,
+  findingBarFor,
+  findingLabelFor,
+  findingLabelStack,
+  findingRail,
+} from "../styles";
 import { SEVERITY_LINE_LABEL } from "../constants";
 import { sortBySeverity, topSeverity, type DiffFindingApi, type LineSeverity } from "../findings";
 import type { FindingRecord } from "@devdigest/shared";
@@ -34,6 +42,14 @@ export function CodeLine({
 }) {
   const t = useTranslations("shell");
   const [composing, setComposing] = React.useState(false);
+  // Finding cards are open by default; the severity label (or the card's X) toggles one closed.
+  const [closed, setClosed] = React.useState<ReadonlySet<string>>(new Set());
+  const toggleFinding = (id: string) =>
+    setClosed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   if (ln.kind === "hunk") {
     return (
@@ -50,7 +66,8 @@ export function CodeLine({
   const top = topSeverity(lineFindings);
   const topColor = top ? SEV[top].c : null;
   // One label per finding (INFO has none), most severe first.
-  const labelled = sortBySeverity(lineFindings).filter((f) => (f.severity as string) in SEVERITY_LINE_LABEL);
+  const hasLabel = (f: FindingRecord) => Object.hasOwn(SEVERITY_LINE_LABEL, f.severity);
+  const labelled = sortBySeverity(lineFindings).filter(hasLabel);
 
   return (
     <div className="dd-code-line" style={cs.rowWrap}>
@@ -81,22 +98,36 @@ export function CodeLine({
             {labelled.map((f) => {
               const sev = f.severity as LineSeverity;
               const LabelIcon = Icon[SEV[sev].icon];
+              const isOpen = !closed.has(f.id);
               return (
-                <span key={f.id} className="mono" style={findingLabelFor(SEV[sev].c)}>
+                <button
+                  key={f.id}
+                  type="button"
+                  className="mono"
+                  aria-expanded={isOpen}
+                  title={t(isOpen ? "diffViewer.hideFinding" : "diffViewer.showFinding")}
+                  onClick={() => toggleFinding(f.id)}
+                  style={findingLabelFor(SEV[sev].c, isOpen)}
+                >
                   <LabelIcon size={12} aria-hidden />
                   {t(`diffViewer.severityLine.${SEVERITY_LINE_LABEL[sev]}`)}
-                </span>
+                </button>
               );
             })}
           </span>
         )}
       </div>
 
-      {renderFinding && lineFindings.length > 0 && (
+      {renderFinding && lineFindings.some((f) => !closed.has(f.id)) && (
         <div style={findingRail}>
-          {sortBySeverity(lineFindings).map((f) => (
-            <React.Fragment key={f.id}>{renderFinding(f)}</React.Fragment>
-          ))}
+          {sortBySeverity(lineFindings)
+            .filter((f) => !closed.has(f.id))
+            .map((f) => (
+              <React.Fragment key={f.id}>
+                {/* Only a labelled finding can be closed: its label is what reopens it. */}
+                {renderFinding(f, hasLabel(f) ? { onClose: () => toggleFinding(f.id) } : undefined)}
+              </React.Fragment>
+            ))}
         </div>
       )}
 

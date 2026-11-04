@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord, PrFile } from "@devdigest/shared";
 import shell from "../../../../messages/en/shell.json";
@@ -31,14 +31,23 @@ const finding = (o: Partial<FindingRecord>): FindingRecord => ({
   ...o,
 });
 
-function Card({ f }: { f: FindingRecord }) {
-  return <div data-testid={`finding-${f.id}`}>{f.title}</div>;
+function Card({ f, onClose }: { f: FindingRecord; onClose?: () => void }) {
+  return (
+    <div data-testid={`finding-${f.id}`}>
+      {f.title}
+      {onClose && (
+        <button type="button" aria-label="Hide finding" onClick={onClose}>
+          x
+        </button>
+      )}
+    </div>
+  );
 }
 
 function api(list: FindingRecord[]): DiffFindingApi {
   const byPath = new Map<string, FindingRecord[]>();
   for (const f of list) byPath.set(f.file, [...(byPath.get(f.file) ?? []), f]);
-  return { byPath, renderFinding: (f) => <Card f={f} /> };
+  return { byPath, renderFinding: (f, ctx) => <Card f={f} onClose={ctx?.onClose} /> };
 }
 
 function renderViewer(props: React.ComponentProps<typeof DiffViewer>) {
@@ -57,12 +66,43 @@ describe("DiffViewer findings", () => {
     });
     // dot only on the file with findings
     expect(screen.getAllByRole("img", { name: "Has review findings" })).toHaveLength(1);
-    // anchored finding rendered under the line, with the severity label
+    // anchored finding rendered under the line, with its severity label as the (open) toggle for the card
     expect(screen.getByTestId("finding-f1")).toBeInTheDocument();
-    expect(screen.getByText("blocker")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "blocker" })).toHaveAttribute("aria-expanded", "true");
     // unanchored finding lands in the always-visible fallback list
     expect(screen.getByText("Findings outside the shown lines")).toBeInTheDocument();
     expect(screen.getByTestId("finding-f2")).toBeInTheDocument();
+  });
+
+  it("the severity label toggles its finding card (open by default, closed on click, reopened on the next click)", () => {
+    renderViewer({ files: FILES, findings: api([finding({})]) });
+    const pill = screen.getByRole("button", { name: "blocker" });
+    expect(pill).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("finding-f1")).toBeInTheDocument();
+
+    fireEvent.click(pill);
+    expect(pill).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("finding-f1")).not.toBeInTheDocument();
+
+    fireEvent.click(pill);
+    expect(pill).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("finding-f1")).toBeInTheDocument();
+  });
+
+  it("the X on a finding card closes it and the label stays to reopen it", () => {
+    renderViewer({ files: FILES, findings: api([finding({})]) });
+    fireEvent.click(screen.getByRole("button", { name: "Hide finding" }));
+    expect(screen.queryByTestId("finding-f1")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "blocker" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("an unlabelled (INFO) finding stays visible and gets no X, since nothing could reopen it", () => {
+    renderViewer({
+      files: FILES,
+      findings: api([finding({ severity: "INFO" as unknown as FindingRecord["severity"] })]),
+    });
+    expect(screen.getByTestId("finding-f1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hide finding" })).not.toBeInTheDocument();
   });
 
   it("shows one lowercase label per finding on a line (most severe first), INFO gets none", () => {

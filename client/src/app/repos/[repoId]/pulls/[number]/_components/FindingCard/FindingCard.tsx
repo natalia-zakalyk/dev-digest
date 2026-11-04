@@ -5,21 +5,11 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
-import {
-  Icon,
-  SeverityBadge,
-  CategoryTag,
-  MonoLink,
-  ConfidenceNum,
-  Button,
-  Markdown,
-  type Severity,
-  type Category,
-} from "@devdigest/ui";
+import { Icon, MonoLink, ConfidenceNum } from "@devdigest/ui";
 import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
 import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
+import { FindingSeverityIcon, FindingTitleRow, FindingBody } from "./FindingParts";
 import { githubBlobUrl } from "@/lib/github-urls";
 import { s } from "./styles";
 
@@ -40,7 +30,6 @@ export function FindingCard({
   repoFullName?: string | null;
   headSha?: string | null;
 }) {
-  const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
   const bodyId = React.useId();
   const sevColor = SEV_COLOR[f.severity] ?? SEV_COLOR_FALLBACK;
@@ -48,9 +37,7 @@ export function FindingCard({
     repoFullName && headSha
       ? githubBlobUrl(repoFullName, headSha, f.file, f.start_line, f.end_line)
       : undefined;
-  const accepted = !!f.accepted_at;
-  const dismissed = !!f.dismissed_at;
-  const muted = accepted || dismissed;
+  const muted = !!f.accepted_at || !!f.dismissed_at;
 
   return (
     <div data-finding-id={f.id} style={s.card(!!focused, sevColor, muted)}>
@@ -64,15 +51,8 @@ export function FindingCard({
           onClick={() => setExpanded((e) => !e)}
           style={s.toggle}
         >
-          <span style={s.badgeWrap}>
-            <SeverityBadge severity={f.severity as Severity} compact />
-          </span>
-          <span style={s.titleRow}>
-            <span style={s.title(muted, dismissed)}>{f.title}</span>
-            <CategoryTag category={f.category as Category} />
-            {accepted && <span style={s.acceptedTag}>{t("finding.accepted")}</span>}
-            {dismissed && <span style={s.dismissedTag}>{t("finding.dismissed")}</span>}
-          </span>
+          <FindingSeverityIcon f={f} />
+          <FindingTitleRow f={f} />
           <Icon.ChevronDown size={16} style={s.chevron(expanded)} />
         </button>
         <div style={s.metaRow}>
@@ -85,40 +65,7 @@ export function FindingCard({
 
       {expanded && (
         <div id={bodyId} style={s.body}>
-          <div style={s.prose}>
-            <Markdown>{f.rationale}</Markdown>
-          </div>
-          {f.suggestion && (
-            <div style={s.suggestionWrap}>
-              <div style={s.suggestionLabel}>{t("finding.suggestedFix")}</div>
-              <div style={s.prose}>
-                <Markdown>{f.suggestion}</Markdown>
-              </div>
-            </div>
-          )}
-
-          <div style={s.actions}>
-            <Button
-              kind="secondary"
-              size="sm"
-              icon="Check"
-              disabled={pending}
-              active={accepted}
-              onClick={() => onAction?.("accept")}
-            >
-              {t("finding.accept")}
-            </Button>
-            <Button
-              kind="ghost"
-              size="sm"
-              icon="X"
-              disabled={pending}
-              active={dismissed}
-              onClick={() => onAction?.("dismiss")}
-            >
-              {t("finding.dismiss")}
-            </Button>
-          </div>
+          <FindingBody f={f} pending={pending} onAction={onAction} />
         </div>
       )}
     </div>

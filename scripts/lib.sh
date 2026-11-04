@@ -49,8 +49,8 @@ tree_hash() {
   } | shasum | cut -c1-12
 }
 
-# Modules with uncommitted changes, one per line (server, client, reviewer-core, e2e).
+# Modules with uncommitted changes, one per line (server, client, reviewer-core, e2e, mcp).
 changed_modules() {
   git status --porcelain 2>/dev/null | cut -c4- | sed 's/^"//' | cut -d/ -f1 \
-    | grep -E '^(server|client|reviewer-core|e2e)$' | sort -u || true
+    | grep -E '^(server|client|reviewer-core|e2e|mcp)$' | sort -u || true
 }

@@ -73,7 +73,7 @@ function mount() {
   render(
     <QueryClientProvider client={qc}>
       <NextIntlClientProvider locale="en" messages={{ prReview, shell, common }}>
-        <DiffTab prId="pr1" filesCount={FILES.length} files={FILES} canComment={false} repoFullName="o/r" headSha="sha" />
+        <DiffTab prId="pr1" filesCount={FILES.length} files={FILES} canComment={false} />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -117,7 +117,16 @@ describe("DiffTab smart diff", () => {
     expect(screen.getByText("Off by one")).toBeInTheDocument();
     expect(screen.getAllByText("blocker").length).toBeGreaterThan(0);
     const card = screen.getByText("Off by one").closest("[data-finding-id]") as HTMLElement;
-    fireEvent.click(within(card).getByRole("button", { name: "Accept" }));
+    // Smart Diff card: severity word, line range + confidence, always expanded (no chevron), an X to close
+    expect(within(card).getByText("blocker")).toBeInTheDocument();
+    expect(within(card).getByText(/^line \d+/)).toBeInTheDocument();
+    expect(within(card).getByText(/% conf/)).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: "Hide finding" }));
+    expect(screen.queryByText("Off by one")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "blocker" })[0]!);
+    expect(screen.getByText("Off by one")).toBeInTheDocument();
+    const reopened = screen.getByText("Off by one").closest("[data-finding-id]") as HTMLElement;
+    fireEvent.click(within(reopened).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(m.post).toHaveBeenCalledWith("/findings/f1/accept", undefined));
 
     // original order: no groups, GitHub order, findings still inline
