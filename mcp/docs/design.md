@@ -50,11 +50,11 @@ sequenceDiagram
 
 ## Flow of `get_blast_radius`
 
-Read-only: resolve repo and PR, one `GET /pulls/:id/blast`, shape. The server owns the analysis (prebuilt repo-intel index, no LLM); `mcp/` only maps and caps it.
+Read-only: resolve repo and PR, one `GET /pulls/:id/blast`, pass through. The server owns the analysis (prebuilt repo-intel index, no LLM) and the limits; `mcp/` returns its map as is.
 
-- Resolve repo then PR (`PrNotImported` for an unknown PR, same as `get_findings`), call the port, shape: `src/use-cases/get-blast-radius.ts:10-18`. The port method is `getBlast(prId)`: `src/ports.ts:43`.
+- Resolve repo then PR (`PrNotImported` for an unknown PR, same as `get_findings`), call the port, return the map: `src/use-cases/get-blast-radius.ts:10-18`. The port method is `getBlast(prId)`: `src/ports.ts:43`.
 - The adapter parses the response with a tolerant local schema (no `@devdigest/shared`), derives missing counts from the lists: `src/api/http-devdigest-api.ts:272`.
-- `shapeBlast` (pure) caps names, paths, endpoint/cron text and list lengths (`BLAST_LIMITS`, `TEXT_CAPS`: `src/constants.ts:30`), maps a degraded index to `reason` + the re-analyze `hint` (a success, not `isError`; MCP never calls resync), and cuts the response under 20 000 chars by dropping trailing callers, then trailing symbols (`truncated:true`): `src/shape/blast.ts:15-24`.
+- `toBlastResult` (pure, `src/shape/blast.ts`) adds only `repo` and `pr` and maps a degraded index to `reason` + the re-analyze `hint` (a success, not `isError`; MCP never calls resync). It does not cap, rename or truncate the map, so what the agent reads is what the route returned.
 - Annotations are `openWorldHint:true` because resolving the PR may make the server sync from GitHub: `src/tools/get-blast-radius.ts:16-17`.
 
 ## Rings

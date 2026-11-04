@@ -1,6 +1,5 @@
 import type { BlastRadiusResponse, BlastDegradedReason } from '@devdigest/shared';
 import type { BlastCallerRow, BlastResult, DegradedReason } from '../../repo-intel/types.js';
-import { MAX_CALLERS_PER_SYMBOL } from '../../repo-intel/constants.js';
 
 // Compile-time guard: every repo-intel degraded reason is a valid wire reason.
 const _reasonsAssignable: DegradedReason extends BlastDegradedReason ? true : never = true;
@@ -9,8 +8,6 @@ void _reasonsAssignable;
 export interface ToBlastOptions {
   degraded: boolean;
   reason?: BlastDegradedReason | null;
-  /** Max callers kept per changed symbol; defaults to the repo-intel read limit. */
-  capPerSymbol?: number;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -35,13 +32,13 @@ const byRankThenPlace = (a: BlastCallerRow, b: BlastCallerRow) =>
   b.rank - a.rank || a.file.localeCompare(b.file) || a.line - b.line;
 
 /**
- * Pure mapping of the repo-intel `BlastResult` to the API response: groups the flat
- * callers per changed symbol, drops a symbol's own declaring file, caps per symbol and
- * attributes endpoints/crons through `factsByFile` per caller (group-level arrays are the
- * union of its callers' facts). The summary is built from numbers only.
+ * Pure mapping of the repo-intel `BlastResult` to the API response: groups the flat callers per
+ * changed symbol, drops a symbol's own declaring file and attributes endpoints/crons through
+ * `factsByFile` per caller (group-level arrays are the union of its callers' facts).
+ * The summary is built from numbers only. No caps here: `repoIntel.getBlastRadius` already
+ * limits the callers (`MAX_CALLERS_PER_SYMBOL`), so the limit lives in one place.
  */
 export function toBlastRadius(result: BlastResult, opts: ToBlastOptions): BlastRadiusResponse {
-  const cap = opts.capPerSymbol ?? MAX_CALLERS_PER_SYMBOL;
   const reason = opts.reason ?? null;
 
   const declFiles = new Map<string, Set<string>>();
@@ -68,8 +65,7 @@ export function toBlastRadius(result: BlastResult, opts: ToBlastOptions): BlastR
         seen.add(key);
         return true;
       })
-      .sort(byRankThenPlace)
-      .slice(0, cap);
+      .sort(byRankThenPlace);
     if (kept.length === 0) return [];
     const endpoints = new Set<string>();
     const crons = new Set<string>();

@@ -111,11 +111,19 @@ const WireConvention = z.object({
 });
 const WireConventions = z.object({ candidates: tolerantList(WireConvention).nullish() });
 const WireBlast = z.object({
-  changed_symbols: tolerantList(z.object({ name: z.string(), file: z.string() })).nullish(),
+  changed_symbols: tolerantList(z.object({ name: z.string(), file: z.string(), kind: z.string().nullish() })).nullish(),
   downstream: tolerantList(
     z.object({
       symbol: z.string(),
-      callers: tolerantList(z.object({ name: z.string(), file: z.string(), line: z.number() })).nullish(),
+      callers: tolerantList(
+        z.object({
+          name: z.string(),
+          file: z.string(),
+          line: z.number().int(),
+          endpoints_affected: z.array(z.string()).nullish(),
+          crons_affected: z.array(z.string()).nullish(),
+        }),
+      ).nullish(),
       endpoints_affected: z.array(z.string()).nullish(),
       crons_affected: z.array(z.string()).nullish(),
     }),
@@ -271,24 +279,28 @@ export class HttpDevDigestApi implements DevDigestApi {
 
   async getBlast(prId: string): Promise<BlastInput> {
     const b = await this.get('GET /pulls/:id/blast', `/pulls/${encodeURIComponent(prId)}/blast`, WireBlast);
-    const changedSymbols = b.changed_symbols ?? [];
+    const changed = (b.changed_symbols ?? []).map(({ kind, ...s }) => (kind ? { ...s, kind } : s));
     const downstream = (b.downstream ?? []).map((d) => ({
       symbol: d.symbol,
-      callers: d.callers ?? [],
-      endpointsAffected: d.endpoints_affected ?? [],
-      cronsAffected: d.crons_affected ?? [],
+      callers: (d.callers ?? []).map(({ endpoints_affected, crons_affected, ...c }) => ({
+        ...c,
+        ...(endpoints_affected ? { endpoints_affected } : {}),
+        ...(crons_affected ? { crons_affected } : {}),
+      })),
+      endpoints_affected: d.endpoints_affected ?? [],
+      crons_affected: d.crons_affected ?? [],
     }));
     // Counts the server did not send are derived from the lists we did get.
     const sum = (f: (d: (typeof downstream)[number]) => number) => downstream.reduce((n, d) => n + f(d), 0);
     return {
-      changedSymbols,
+      changed_symbols: changed,
       downstream,
       summary: b.summary ?? '',
       counts: {
-        symbols: b.counts?.symbols ?? changedSymbols.length,
+        symbols: b.counts?.symbols ?? changed.length,
         callers: b.counts?.callers ?? sum((d) => d.callers.length),
-        endpoints: b.counts?.endpoints ?? sum((d) => d.endpointsAffected.length),
-        crons: b.counts?.crons ?? sum((d) => d.cronsAffected.length),
+        endpoints: b.counts?.endpoints ?? sum((d) => d.endpoints_affected.length),
+        crons: b.counts?.crons ?? sum((d) => d.crons_affected.length),
       },
       degraded: b.degraded ?? false,
       reason: b.reason ?? null,

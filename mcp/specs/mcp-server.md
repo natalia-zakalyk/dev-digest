@@ -58,12 +58,12 @@ Arguments (all tools). Unknown keys are rejected by the SDK as an `isError:true`
 
 | Arg | Type | Used by | Notes |
 |---|---|---|---|
-| `repo` | string `owner/name` | all except `list_agents` | matched case-insensitively against `GET /repos` `full_name`. Only parameter with a description: exactly `owner/name`. |
-| `pr` | integer >= 1 | `run_agent_on_pr`, `get_findings`, `get_blast_radius` | PR number on GitHub. No description. |
-| `agent` | string | `run_agent_on_pr` (required), `get_findings` (optional) | agent id from `list_agents`. No description. |
-| `run_id` | string | `get_findings` (optional) | opaque id returned by `run_agent_on_pr`. No description. |
-| `detail` | enum `concise` \| `full` | `run_agent_on_pr`, `get_findings` | default `concise`. |
-| `limit` | integer, 1..100 **(proposed max)** | `run_agent_on_pr`, `get_findings`, `get_conventions` | default 20; most severe first. No description. |
+| `repo` | string `owner/name` | all except `list_agents` | matched case-insensitively against `GET /repos` `full_name`. Description: exactly `owner/name`. |
+| `pr` | integer >= 1 | `run_agent_on_pr`, `get_findings`, `get_blast_radius` | PR number on GitHub. Description: `PR number on GitHub, e.g. 42`. |
+| `agent` | string | `run_agent_on_pr` (required), `get_findings` (optional) | agent id from `list_agents`. Description: `agent id from list_agents, a UUID`. |
+| `run_id` | string | `get_findings` (optional) | opaque id returned by `run_agent_on_pr`. Description: `run_id returned by run_agent_on_pr`. |
+| `detail` | enum `concise` \| `full` | `run_agent_on_pr`, `get_findings` | default `concise`. Description: `concise (default) or full, e.g. full to add rationale`. |
+| `limit` | integer, 1..100 **(proposed max)** | `run_agent_on_pr`, `get_findings`, `get_conventions` | default 20; most severe first. Description: `max items to return, 1-100, default 20, e.g. 10`. |
 
 ### `list_agents()`
 ```
@@ -110,12 +110,12 @@ Flow: resolve repo, PR, agent -> `POST /pulls/:id/review` `{agentId}` -> poll `G
 ### `get_blast_radius(repo, pr)`
 ```
 -> {repo, pr, summary, counts:{symbols,callers,endpoints,crons}, degraded, reason?, hint?,
-    changed_symbols:[{name,file}], downstream:[{symbol, callers:[{name,file,line}], endpoints_affected[], crons_affected[]}], truncated?}
+    changed_symbols:[{name,file,kind?}], downstream:[{symbol, callers:[{name,file,line,endpoints_affected?[],crons_affected?[]}], endpoints_affected[], crons_affected[]}]}
 ```
-- Flow: `resolve.repo` → `resolve.pull` (unknown PR → `PrNotImported`, same as `get_findings`) → `GET /pulls/:id/blast` → shape. Object root (SDK v2 wraps non-object roots, `INSIGHTS.md:20`).
+- Flow: `resolve.repo` → `resolve.pull` (unknown PR → `PrNotImported`, same as `get_findings`) → `GET /pulls/:id/blast` → pass through. Object root (SDK v2 wraps non-object roots, `INSIGHTS.md:20`).
 - Source: server `GET /pulls/:id/blast` (`BlastRadiusResponse`, [server/specs/blast-radius.md](../../server/specs/blast-radius.md)); the server reads the prebuilt repo-intel index, no LLM. Same `counts`/`downstream` as the studio's Overview card.
 - Degraded index (`degraded:true`) is a **success** (not `isError`) with `reason` and a `hint`: `Index incomplete (<reason>): open the repo in the DevDigest studio and run Re-analyze, then retry.` MCP never calls resync.
-- Local tolerant wire schema (security rule 7). Names, file paths and endpoint/cron strings are repo-derived untrusted text: capped with `TEXT_CAPS`. Caps (`src/constants.ts`): symbol/caller names 100, file 300, endpoint/cron text 150, summary 300; at most 30 changed symbols, 30 downstream symbols, 20 callers and 10 endpoints/crons per symbol. `reason` is echoed only when it is one of the five known values (else `unknown`). Response is kept under the 20 000-char cap by dropping trailing callers (then trailing symbols) and setting `truncated:true` plus a hint; `counts` always describe the full map. The server's `summary`, `counts`, `degraded` are passed through.
+- Local tolerant wire schema (security rule 7): extra keys are ignored, malformed list items skipped, missing counts derived from the lists. The route's map is **passed through as is** (decision 2026-11-05, review comment): `changed_symbols`, `downstream` (with per-caller `endpoints_affected` / `crons_affected` when the server sends them), `summary`, `counts`, `degraded` are returned unchanged, plus `repo`, `pr`. No renaming, no text caps, no list caps, no `truncated`. The server already bounds the data (`MAX_CALLERS_PER_SYMBOL` in the facade). Names, paths and endpoint/cron strings remain repo-derived untrusted text (the server `instructions` say so). `reason` is echoed only when it is one of the five known values (else `unknown`) and a degraded index adds the `hint`.
 
 ### Finding shape
 - `concise`: `{id, severity, file, line, title}`.
@@ -154,7 +154,7 @@ All numbers except those fixed by the plan are starting values; S7/S9 measure an
 | `instructions` | <= 600 chars (452 after 2026-11-04; was 415); Claude Code cuts at 4096 | plan |
 | Each tool description | <= 300 chars (`get_blast_radius` 292 after 2026-11-04, others 145 / 284 / 200 / 168) | plan |
 | Sum of the five tool descriptions | 1 089 chars (was 946) | plan |
-| Serialized `tools/list` (all five) | **No hard budget yet.** Measured **11 646 chars** with the real `get_blast_radius` on 2026-11-04 (descriptions 1 089, input schemas 1 781, output schemas 7 984; was 10 248 before the tool was implemented; the 16 000 ceiling holds). Earlier measurement: 10 248 chars (~10.2k, annotations included; re-measured after the `openWorldHint` change, was 10 250: descriptions 946, input schemas 1 781, output schemas 6 728). S7 test only reports it and has a sanity ceiling of 16 000 chars against runaway growth; the real budget is decided after the S9 measurement in Claude Code | S7 measurement (the 6 000 draft was a guess) |
+| Serialized `tools/list` (all five) | **No hard budget yet.** Measured **12 382 chars** on 2026-11-05 (parameter descriptions with examples and the wider blast output schema: input schemas 2 399, output schemas 8 102; the 16 000 ceiling holds). Before that **11 646 chars** with the real `get_blast_radius` on 2026-11-04 (descriptions 1 089, input schemas 1 781, output schemas 7 984; was 10 248 before the tool was implemented; the 16 000 ceiling holds). Earlier measurement: 10 248 chars (~10.2k, annotations included; re-measured after the `openWorldHint` change, was 10 250: descriptions 946, input schemas 1 781, output schemas 6 728). S7 test only reports it and has a sanity ceiling of 16 000 chars against runaway growth; the real budget is decided after the S9 measurement in Claude Code | S7 measurement (the 6 000 draft was a guess) |
 | `limit` default | 20 findings / conventions | plan |
 | Findings text cap | title <= 200 chars, `rationale`/`suggestion` <= 1 000 chars, run `error` <= 500 chars, convention `rule` <= 300 chars **(proposed)** | plan says "fixed length" |
 | Other untrusted text caps (`TEXT_CAPS`, `src/constants.ts`) | agent `name` <= 100, agent `description` <= 300, finding `file` <= 300, convention `category` <= 100, convention evidence path <= 300 (the `:line` suffix is added after the cap); agent names in the `AgentNotFound` text <= 100 **(proposed)** | security rule 3 |
@@ -173,7 +173,7 @@ drop trailing findings until it fits and set `truncated:true`. `total` always re
 ## Security rules
 1. **Loopback only.** The API has no authentication (`LocalNoAuthProvider`). The base URL (`DEVDIGEST_API_BASE`, default `http://localhost:3001`) must be a loopback host (`localhost`, `127.0.0.1`, `::1`); anything else is refused at startup unless `DEVDIGEST_ALLOW_REMOTE=1`. Independently of that flag the base must be a plain URL: scheme `http:` or `https:` only, no username or password (they would go out with every request and into logs), no query, no hash; otherwise `InvalidBaseUrl` (`malformed`). A path is allowed.
 2. **Outbound calls:** only the DevDigest API base. No other host, no GitHub or LLM calls from `mcp/`. **Redirects are never followed**: every request is sent with `redirect: 'error'`, so a 3xx (which would re-send the request, including the `POST` body, to another host) surfaces as `ApiUnreachable` (a fetch that returns a 3xx anyway becomes `ApiError`). Error texts and the startup log show only the origin of the base (`scheme://host:port`).
-3. **Untrusted text.** Finding titles/rationale/suggestions/files, PR titles, agent names and descriptions, convention categories and evidence paths derive from PR content or model output. They are truncated (caps in Size budgets), returned as data, never executed, never used to build requests or file paths. The server `instructions` tell the model to treat them as data.
+3. **Untrusted text.** Finding titles/rationale/suggestions/files, PR titles, agent names and descriptions, convention categories and evidence paths derive from PR content or model output. They are truncated (caps in Size budgets; exception: `get_blast_radius` returns the server's map as is, see its section), returned as data, never executed, never used to build requests or file paths. The server `instructions` tell the model to treat them as data.
 4. **No secrets.** `system_prompt` is never returned. No `.env` or `~/.devdigest/secrets.json` reads. No tokens or secrets in logs, errors or output.
 5. **Write is bounded.** `run_agent_on_pr` is the only write; one agent per call (no `all`); API rate limit (10/min) is reported clearly, not retried; MCP never writes anything itself and does not trigger PR refreshes (D4; the server's own `GET /repos/:id/pulls` may sync PRs from GitHub).
 6. **Input validation.** `repo` must match `^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$` **(proposed)**; `pr` positive integer; `agent` and `run_id` are treated as opaque strings, length-capped (<= 128 chars) **(proposed)**, URL-encoded when placed in a path, and never interpolated into anything else.
@@ -236,7 +236,7 @@ Rules these texts rely on (tests in S7 enforce them): each tool description <= 3
 5. If the run outlives `MCP_RUN_WAIT_MS` (fake clock), it returns `status:"running"` with `run_id` and a `next` text containing the real `repo`, `pr` and `run_id`; a run ending `failed` returns `status:"failed"` with `error`, not `isError`. If `listRuns` or `listReviews` fails with `ApiUnreachable`/`ApiError` after `startReview` succeeded, it also returns the `running` result (so the model does not start a second billed run) and `startReview` was called exactly once; a failure of `startReview` itself stays an error.
 6. `get_findings` never calls `POST /pulls/:id/review`; with `run_id` it returns that run, without it the latest review of each agent.
 7. `get_conventions` returns only accepted conventions and `evidence` as `path:line`; empty gives a success with a `hint`.
-8. `get_blast_radius` (fake API) returns the shaped map with `counts`, `downstream` (callers as `file:line`, endpoints, crons); an unknown PR gives the catalog `PrNotImported` text with `isError:true`; a degraded index returns a success with `degraded:true`, `reason` and the re-analyze `hint`; `get_blast_radius` never starts a run and never calls resync; over-long output is cut under 20 000 chars with `truncated:true`.
+8. `get_blast_radius` (fake API) returns the server's map as is with `counts`, `downstream` (callers as `file:line`, endpoints, crons); an unknown PR gives the catalog `PrNotImported` text with `isError:true`; a degraded index returns a success with `degraded:true`, `reason` and the re-analyze `hint`; `get_blast_radius` never starts a run and never calls resync; over-long output is cut under 20 000 chars with `truncated:true`.
 9. Each semantic error in the catalog produces `isError:true` with exactly the cataloged text (handler tests, one per row), and each text names the next call.
 10. A fixture with 500 findings produces a response <= 20 000 chars with `truncated:true` and the real `total`; `limit` default is 20.
 11. `detail:"concise"` findings contain exactly `{id, severity, file, line, title}`; `full` adds `rationale`, `suggestion`, `confidence`.

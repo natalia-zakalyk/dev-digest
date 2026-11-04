@@ -54,10 +54,10 @@ describe('toBlastRadius', () => {
     expect(r.downstream[0]!.callers.map((c) => c.file)).toEqual(['src/c.ts']);
   });
 
-  it('caps callers per symbol at MAX_CALLERS_PER_SYMBOL', () => {
+  it('does not cap callers itself: the facade already limits them', () => {
     const callers = Array.from({ length: MAX_CALLERS_PER_SYMBOL + 5 }, (_, i) => caller(`src/c${i}.ts`, 'alpha', 1, i));
     const r = toBlastRadius(result({ callers }), ok);
-    expect(r.downstream[0]!.callers).toHaveLength(MAX_CALLERS_PER_SYMBOL);
+    expect(r.downstream[0]!.callers).toHaveLength(MAX_CALLERS_PER_SYMBOL + 5);
     expect(r.downstream[0]!.callers[0]!.file).toBe(`src/c${MAX_CALLERS_PER_SYMBOL + 4}.ts`); // highest rank first
   });
 

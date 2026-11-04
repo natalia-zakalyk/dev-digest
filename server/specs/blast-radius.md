@@ -83,15 +83,15 @@ At most one `getBlastRadius` call per request, so the ripgrep fallback is not re
 Unindexed repos (e.g. the seed repo, `db/seed.ts:89`, `clonePath: null`) therefore show a degraded marker, not a best-effort result.
 
 ## Mapping (`modules/blast/domain/map.ts`, pure)
-`toBlastRadius(result, {degraded, reason, capPerSymbol = MAX_CALLERS_PER_SYMBOL}) → BlastRadiusResponse`.
+`toBlastRadius(result, {degraded, reason}) → BlastRadiusResponse`.
 1. `changed_symbols` from `result.changedSymbols`.
 2. Group `callers` by `viaSymbol`; drop a caller whose `file` declares that symbol (declaring files from `changedSymbols`, so a same name declared in two changed files is handled); dedupe by `file:line:name`.
-3. Sort callers by rank desc, then file, then line; cap **per symbol** at `MAX_CALLERS_PER_SYMBOL` (imported from `repo-intel/constants.ts`, not copied).
+3. Sort callers by rank desc, then file, then line. No cap here: the facade already limits callers (`MAX_CALLERS_PER_SYMBOL`, applied to the whole flat list), so the limit lives in one place.
 4. Per kept caller: `endpoints_affected` / `crons_affected` = sorted, deduplicated `factsByFile[caller.file]` (`[]` when the file has no facts or `factsByFile` is absent). Per group: `endpoints_affected` / `crons_affected` = sorted union of its kept callers' arrays.
 5. `downstream` (D3): one entry per **unique changed symbol name with at least one caller** after filtering, sorted by best caller rank desc, then name. Symbols without callers stay only in `changed_symbols`.
 6. `counts` = `{symbols: changed_symbols.length, callers: Σ callers in downstream, endpoints: unique endpoints across downstream, crons: unique crons}`.
 7. `summary` from numbers only, joined with ` · `: `<n> symbol(s) changed`, `<n> caller(s)`, `<n> endpoint(s)`, `<n> cron(s)` (singular when n = 1, e.g. `2 symbols changed · 14 callers · 3 endpoints · 1 cron`); suffix ` · index partial` when `reason === 'index_partial'`.
-Imports: only types from `repo-intel/types.ts` and the constant from `repo-intel/constants.ts` (never the module barrel, `INSIGHTS.md:25`).
+Imports: only types from `repo-intel/types.ts` (never the module barrel, `INSIGHTS.md:25`).
 
 ## Logging (D5)
 One info line per request through a narrow log port passed by the route (`req.log`):
@@ -111,7 +111,7 @@ P1
 P2
 - Flag off, or status `degraded`/`failed`/no row → no `getBlastRadius` call, right `reason`, empty data (no re-parsing, no clone reads).
 - One info log line per request with `source:'repo_index'`.
-- Per-symbol cap equals `MAX_CALLERS_PER_SYMBOL` (the test imports the constant).
+- The mapping keeps every caller it is given (the test feeds more than `MAX_CALLERS_PER_SYMBOL` and expects all of them).
 - Tests: `test/blast-map.test.ts`, `test/blast.test.ts` (hermetic), `test/blast.it.test.ts` (Postgres; seeds `file_rank` too).
 
 ## Out of scope

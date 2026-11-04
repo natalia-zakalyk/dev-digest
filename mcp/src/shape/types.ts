@@ -61,25 +61,28 @@ export interface ConventionInput {
 export interface BlastSymbolInput {
   name: string;
   file: string;
+  kind?: string;
 }
 
 export interface BlastCallerInput {
   name: string;
   file: string;
   line: number;
+  endpoints_affected?: string[];
+  crons_affected?: string[];
 }
 
 export interface BlastDownstreamInput {
   symbol: string;
-  callers: readonly BlastCallerInput[];
-  endpointsAffected: readonly string[];
-  cronsAffected: readonly string[];
+  callers: BlastCallerInput[];
+  endpoints_affected: string[];
+  crons_affected: string[];
 }
 
-/** `GET /pulls/:id/blast` as the port hands it over (repo-derived strings are untrusted). */
+/** `GET /pulls/:id/blast` as the port hands it over: the route's own shape, passed through (untrusted repo text). */
 export interface BlastInput {
-  changedSymbols: readonly BlastSymbolInput[];
-  downstream: readonly BlastDownstreamInput[];
+  changed_symbols: BlastSymbolInput[];
+  downstream: BlastDownstreamInput[];
   summary: string;
   counts: { symbols: number; callers: number; endpoints: number; crons: number };
   degraded: boolean;

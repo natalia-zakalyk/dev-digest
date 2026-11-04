@@ -18,20 +18,8 @@ export const TEXT_CAPS = {
   file: 300,
   category: 100,
   evidencePath: 300,
-  /** Blast radius: symbol / caller names, endpoint and cron text, summary (repo-derived, untrusted). */
-  symbolName: 100,
-  endpointOrCron: 150,
-  blastSummary: 300,
   /** Short text taken from API error bodies. */
   apiMessage: 200,
-} as const;
-
-/** Blast radius list caps (the server already caps callers; these bound untrusted payload size). */
-export const BLAST_LIMITS = {
-  changedSymbols: 30,
-  downstream: 30,
-  callersPerSymbol: 20,
-  factsPerSymbol: 10,
 } as const;
 
 /** `reason` values the server may send; anything else is shown as `unknown`. */

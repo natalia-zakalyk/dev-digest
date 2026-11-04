@@ -251,7 +251,7 @@ describe('listAgents / getConventions / getBlastRadius', () => {
       pr: 12,
       degraded: false,
       counts: { symbols: 1, callers: 1, endpoints: 1, crons: 0 },
-      changed_symbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts' }],
+      changed_symbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts', kind: 'function' }],
       downstream: [
         {
           symbol: 'rateLimit',

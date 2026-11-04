@@ -1,10 +1,6 @@
-import { BLAST_LIMITS, BLAST_REASONS, TEXT_CAPS } from '../constants.js';
-import { fitToBudget } from './budget.js';
-import type { BlastDownstream, BlastRadiusResult } from './schemas.js';
-import { truncateText } from './text.js';
+import { BLAST_REASONS } from '../constants.js';
+import type { BlastRadiusResult } from './schemas.js';
 import type { BlastInput } from './types.js';
-
-const OVERSIZE_HINT = 'Output cut to fit the size limit; counts describe the full map.';
 
 /** Known `reason` values pass through; anything else is shown as `unknown` (never echo free text into the hint). */
 function safeReason(reason: string | null): string {
@@ -17,66 +13,19 @@ export function degradedHint(reason: string): string {
 }
 
 /**
- * The same map as the API, capped: repo-derived strings are untrusted data (security rule 3), so names,
- * paths, endpoint/cron text and list lengths are bounded; the response is cut under the hard cap by dropping
- * trailing callers (then trailing symbols) and setting `truncated`. `counts` always describe the full map.
+ * The server's blast map as is (the route already bounds it), plus the repo and PR it answers for and, for a
+ * degraded index, the `reason` and the re-analyze `hint`. Nothing is dropped, renamed or truncated here.
  */
-export function shapeBlast(repo: string, pr: number, input: BlastInput): BlastRadiusResult {
-  const changedAll = input.changedSymbols;
-  const changed = changedAll.slice(0, BLAST_LIMITS.changedSymbols).map((s) => ({
-    name: truncateText(s.name, TEXT_CAPS.symbolName),
-    file: truncateText(s.file, TEXT_CAPS.file),
-  }));
-  const groups: BlastDownstream[] = input.downstream.slice(0, BLAST_LIMITS.downstream).map((d) => ({
-    symbol: truncateText(d.symbol, TEXT_CAPS.symbolName),
-    callers: d.callers.slice(0, BLAST_LIMITS.callersPerSymbol).map((c) => ({
-      name: truncateText(c.name, TEXT_CAPS.symbolName),
-      file: truncateText(c.file, TEXT_CAPS.file),
-      line: Math.trunc(c.line),
-    })),
-    endpoints_affected: d.endpointsAffected
-      .slice(0, BLAST_LIMITS.factsPerSymbol)
-      .map((e) => truncateText(e, TEXT_CAPS.endpointOrCron)),
-    crons_affected: d.cronsAffected
-      .slice(0, BLAST_LIMITS.factsPerSymbol)
-      .map((e) => truncateText(e, TEXT_CAPS.endpointOrCron)),
-  }));
-
+export function toBlastResult(repo: string, pr: number, input: BlastInput): BlastRadiusResult {
   const reason = input.degraded ? safeReason(input.reason) : undefined;
-  const cutInput =
-    changedAll.length > changed.length ||
-    input.downstream.length > groups.length ||
-    input.downstream.some((d, i) => d.callers.length > (groups[i]?.callers.length ?? 0));
-
-  // Units in output order: a symbol header, then its callers. Dropping from the end cuts callers first.
-  const units = groups.reduce((n, g) => n + 1 + g.callers.length, 0);
-  const render = (keep: number): BlastRadiusResult => {
-    let left = keep;
-    const downstream: BlastDownstream[] = [];
-    for (const g of groups) {
-      if (left <= 0) break;
-      left -= 1;
-      const callers = g.callers.slice(0, left);
-      left -= callers.length;
-      downstream.push({ ...g, callers });
-    }
-    const cut = cutInput || keep < units;
-    const hints = [
-      ...(reason !== undefined ? [degradedHint(reason)] : []),
-      ...(cut ? [OVERSIZE_HINT] : []),
-    ];
-    return {
-      repo,
-      pr,
-      summary: truncateText(input.summary, TEXT_CAPS.blastSummary),
-      counts: input.counts,
-      degraded: input.degraded,
-      ...(reason !== undefined ? { reason } : {}),
-      ...(hints.length > 0 ? { hint: hints.join(' ') } : {}),
-      changed_symbols: changed,
-      downstream,
-      ...(cut ? { truncated: true } : {}),
-    };
+  return {
+    repo,
+    pr,
+    summary: input.summary,
+    counts: input.counts,
+    degraded: input.degraded,
+    ...(reason !== undefined ? { reason, hint: degradedHint(reason) } : {}),
+    changed_symbols: [...input.changed_symbols],
+    downstream: input.downstream.map((d) => ({ ...d, callers: [...d.callers] })),
   };
-  return fitToBudget(units, render);
 }

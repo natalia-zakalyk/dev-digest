@@ -46,13 +46,13 @@ export class FakeApi implements DevDigestApi {
   runsByPoll: RunInput[][] = [[run({ status: 'done' })]];
   started: StartedRun = { runId: 'run-1', agentId: 'a1', agentName: 'security-reviewer' };
   blast: BlastInput = {
-    changedSymbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts' }],
+    changed_symbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts', kind: 'function' }],
     downstream: [
       {
         symbol: 'rateLimit',
         callers: [{ name: 'listItems', file: 'src/api/items.ts', line: 7 }],
-        endpointsAffected: ['GET /api/public/items'],
-        cronsAffected: [],
+        endpoints_affected: ['GET /api/public/items'],
+        crons_affected: [],
       },
     ],
     summary: '1 symbol changed · 1 caller · 1 endpoint',

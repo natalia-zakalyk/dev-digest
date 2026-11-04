@@ -333,12 +333,13 @@ describe('definitions', () => {
     }
   });
 
-  it('only repo has a parameter description; unknown keys are rejected', () => {
+  it('every parameter has a short description with an example; unknown keys are rejected', () => {
     for (const t of tools) {
       const json = z.toJSONSchema(t.config.inputSchema) as { properties: Record<string, { description?: string }> };
       for (const [key, prop] of Object.entries(json.properties)) {
         if (key === 'repo') expect(prop.description).toBe('owner/name');
-        else expect(prop.description).toBeUndefined();
+        else expect(prop.description, `${t.name}.${key}`).toMatch(/e\.g\.|UUID|returned by/);
+        expect(prop.description?.length ?? 0, `${t.name}.${key}`).toBeLessThanOrEqual(80);
       }
       expect(t.config.inputSchema.safeParse({ repo: 'a/b', pr: 1, agent: 'x', extra: 1 }).success).toBe(false);
     }

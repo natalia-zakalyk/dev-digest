@@ -299,7 +299,7 @@ describe('HttpDevDigestApi failure classes', () => {
 });
 
 describe('HttpDevDigestApi.getBlast', () => {
-  it('GETs /pulls/:id/blast (encoded id, redirect:error) and maps the map; extra keys ignored, malformed items skipped', async () => {
+  it('GETs /pulls/:id/blast (encoded id, redirect:error) and passes the map through; extra keys ignored, malformed items skipped', async () => {
     const { api, calls } = make({
       'GET /pulls/p%2F1/blast': () =>
         json({
@@ -307,7 +307,7 @@ describe('HttpDevDigestApi.getBlast', () => {
           downstream: [
             {
               symbol: 'f',
-              callers: [{ name: 'g', file: 'b.ts', line: 4 }, 'junk'],
+              callers: [{ name: 'g', file: 'b.ts', line: 4, endpoints_affected: ['GET /x'], crons_affected: [] }, 'junk'],
               endpoints_affected: ['GET /x'],
               crons_affected: ['0 * * * *'],
             },
@@ -320,13 +320,13 @@ describe('HttpDevDigestApi.getBlast', () => {
         }),
     });
     expect(await api.getBlast('p/1')).toEqual({
-      changedSymbols: [{ name: 'f', file: 'a.ts' }],
+      changed_symbols: [{ name: 'f', file: 'a.ts', kind: 'function' }],
       downstream: [
         {
           symbol: 'f',
-          callers: [{ name: 'g', file: 'b.ts', line: 4 }],
-          endpointsAffected: ['GET /x'],
-          cronsAffected: ['0 * * * *'],
+          callers: [{ name: 'g', file: 'b.ts', line: 4, endpoints_affected: ['GET /x'], crons_affected: [] }],
+          endpoints_affected: ['GET /x'],
+          crons_affected: ['0 * * * *'],
         },
       ],
       summary: 's',

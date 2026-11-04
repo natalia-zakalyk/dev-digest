@@ -106,7 +106,13 @@ export const BlastCounts = z.object({
 });
 export type BlastCounts = z.infer<typeof BlastCounts>;
 
-export const BlastCaller = z.object({ name: z.string(), file: z.string(), line: z.number().int() });
+export const BlastCaller = z.object({
+  name: z.string(),
+  file: z.string(),
+  line: z.number().int(),
+  endpoints_affected: z.array(z.string()).optional(),
+  crons_affected: z.array(z.string()).optional(),
+});
 export type BlastCaller = z.infer<typeof BlastCaller>;
 
 export const BlastDownstream = z.object({
@@ -117,7 +123,7 @@ export const BlastDownstream = z.object({
 });
 export type BlastDownstream = z.infer<typeof BlastDownstream>;
 
-/** `get_blast_radius` answer (spec): the same map the studio's Overview card shows. Object root. */
+/** `get_blast_radius` answer (spec): the route's map as is, plus `repo`, `pr` and a degraded `hint`. Object root. */
 export const BlastRadiusResult = z.object({
   repo: z.string(),
   pr: z.number().int(),
@@ -126,9 +132,8 @@ export const BlastRadiusResult = z.object({
   degraded: z.boolean(),
   reason: z.string().optional(),
   hint: z.string().optional(),
-  changed_symbols: z.array(z.object({ name: z.string(), file: z.string() })),
+  changed_symbols: z.array(z.object({ name: z.string(), file: z.string(), kind: z.string().optional() })),
   downstream: z.array(BlastDownstream),
-  truncated: z.boolean().optional(),
 });
 export type BlastRadiusResult = z.infer<typeof BlastRadiusResult>;
 
