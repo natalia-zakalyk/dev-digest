@@ -73,6 +73,7 @@ flowchart TB
   subgraph Review["Review & runs"]
     intent["intent<br/>/pulls/:id/intent (GET · POST)"]
     smartDiff["smart-diff<br/>/pulls/:id/smart-diff (files by role + finding ids)"]
+    blast["blast<br/>/pulls/:id/blast (changed symbols, callers, endpoints, crons)"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
   end
   subgraph Agents["Agents"]

@@ -171,7 +171,7 @@ export function isBinary(absPath) {
 
 export const moduleOf = (path) => {
   const top = path.split('/')[0];
-  return ['server', 'client', 'reviewer-core', 'e2e'].includes(top) ? top : 'root';
+  return ['server', 'client', 'reviewer-core', 'e2e', 'mcp'].includes(top) ? top : 'root';
 };
 
 export function readJson(file, fallback) {

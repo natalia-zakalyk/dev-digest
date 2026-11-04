@@ -129,16 +129,25 @@ export const findingLabelStack: CSSProperties = {
   flexShrink: 0,
 };
 
-/** One severity label: small coloured icon + lowercase word. */
-export function findingLabelFor(color: string): CSSProperties {
+/**
+ * One severity label, a toggle for its finding card: an outlined, softly tinted pill while the card is
+ * open, plain icon + word while it is closed (the transparent border keeps the size identical).
+ */
+export function findingLabelFor(color: string, open: boolean): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
     gap: 4,
+    padding: "1px 7px",
     fontSize: 11,
+    lineHeight: "16px",
     fontWeight: 600,
     whiteSpace: "nowrap",
     color,
+    border: `1px solid ${open ? color : "transparent"}`,
+    borderRadius: 5,
+    background: open ? `color-mix(in srgb, ${color} 10%, transparent)` : "transparent",
+    cursor: "pointer",
   };
 }
 

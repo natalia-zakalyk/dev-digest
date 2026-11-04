@@ -59,6 +59,31 @@ describe("FindingCard (smoke, both themes)", () => {
   });
 });
 
+describe("FindingCard — Smart Diff look", () => {
+  it("shows the uppercase-able severity word, confidence and a bordered suggested fix", () => {
+    renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={() => {}} />);
+    // critical reads as "blocker" (same word as the diff label); a plain word, upper-cased by CSS
+    expect(screen.getByText("blocker")).toBeInTheDocument();
+    expect(screen.getByText("95% conf")).toBeInTheDocument();
+    expect(screen.getByText("Suggested fix")).toBeInTheDocument();
+    expect(screen.getByText("Move the key to an environment variable.")).toBeInTheDocument();
+  });
+
+  it("prototype keys are not severities", () => {
+    renderWithIntl(
+      <FindingCard f={{ ...FINDING, severity: "constructor" as FindingRecord["severity"] }} onAction={() => {}} />,
+    );
+    expect(screen.getByText("info")).toBeInTheDocument();
+  });
+
+  it("an unknown severity falls back to the info word instead of crashing", () => {
+    renderWithIntl(
+      <FindingCard f={{ ...FINDING, severity: "WEIRD" as FindingRecord["severity"] }} onAction={() => {}} />,
+    );
+    expect(screen.getByText("info")).toBeInTheDocument();
+  });
+});
+
 describe("FindingCard — disclosure", () => {
   it("the header is a button that toggles the body and reports aria-expanded", () => {
     renderWithIntl(<FindingCard f={FINDING} onAction={() => {}} />);

@@ -13,6 +13,7 @@ Imported into CLAUDE.md, so it is loaded every session here — signal over volu
 
 ## Codebase Patterns
 - 2026-10-07 — Course material says `LEARNINGS.md` in `apps/*`/`packages/*` → here it is `<module>/INSIGHTS.md` in `server/`, `client/`, `reviewer-core/`, `e2e/` (repo-intel lives in `server/src`) [supersedes the same entry without file:line] (CLAUDE.md:64)
+- 2026-11-03 — A new module must be added to several hard-coded module lists, not only scripts/lib.sh and pr-self-review lib.mjs/skill-map.json: also the lock-file regex in run-checks.mjs; stop-insights-check.mjs has no list (fires on any dirty tree); architecture-reviewer, investigator, doc-writer, researcher, brainstorm, insight-curator still name only the old modules → grep for 'reviewer-core' when adding one (.claude/skills/pr-self-review/scripts/run-checks.mjs:100)
 
 ## Tool & Library Notes
 - 2026-10-07 — A module's CLAUDE.md (and its `@INSIGHTS.md`) loads only after Claude touches files in that folder, not at session start from the root → read `<module>/INSIGHTS.md` explicitly before answering [supersedes the same entry without file:line] (CLAUDE.md:65)

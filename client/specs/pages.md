@@ -79,7 +79,7 @@ Every route also gets `app/error.tsx` (segment error boundary: `ErrorState` + Re
 
 | Tab label | `?tab` | Content |
 |---|---|---|
-| Overview | `overview` | Intent card (full width, see [intent-layer.md](intent-layer.md)) + PR description (`OverviewTab`); description hidden if body is empty |
+| Overview | `overview` | Intent card (see [intent-layer.md](intent-layer.md)) and Blast radius card (`usePrBlast` → `GET /pulls/:id/blast`, see [blast-radius.md](blast-radius.md)) side by side in a responsive grid, then PR description (`OverviewTab`); description hidden if body is empty |
 | Agent runs (count = total findings) | `findings` | `FindingsTab`, see below |
 | Files changed (count = files) | `diff` | `DiffTab`: Smart order (files grouped by role: core, tests, wiring, docs, boilerplate; findings inline; `usePrSmartDiff` → `GET /pulls/:id/smart-diff`) or Original order, see [smart-diff.md](smart-diff.md); `DiffViewer` + GitHub inline comments (`GET/POST /pulls/:id/comments`); comments hidden and findings shown by default; one Show/Hide "comments & findings" toggle; commenting only when `pr.status === "open"` |
 

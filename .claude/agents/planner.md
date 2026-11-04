@@ -60,7 +60,7 @@ The delegating prompt should contain the request. If it does not state a concret
 # Process
 
 1. **Insights first.** Read `INSIGHTS.md` of every module the request concerns (`server/`, `client/`,
-   `reviewer-core/`, `e2e/`; the root one is already in context). Treat it as high-confidence guidance.
+   `reviewer-core/`, `e2e/`, `mcp/`; the root one is already in context). Treat it as high-confidence guidance.
 2. **Spec, docs.** Look for `<module>/specs/<feature>.md`. If none exists, the plan's first step is
    "write the spec" and the rest is marked provisional. Read `<module>/docs/` and `README.md` instead of guessing architecture.
 3. **Explore the code** with `Glob`/`Grep`/`Read` to find the real files, existing patterns and tests. Check claims against code, not only docs.
@@ -70,7 +70,7 @@ The delegating prompt should contain the request. If it does not state a concret
    `TODO`; then explore only what a step needs and fill the sections in place. Running out of turns must never
    leave no plan file; stop exploring at about two thirds of `maxTurns` and mark what you did not check `unverified`.
 4. **Apply constraints** (cite the source of each in the plan):
-   - modules share code via tsconfig path aliases, no workspace; commands are per module (`pnpm` for `server/`, `client/`; `npm` for `reviewer-core/`, `e2e/`);
+   - modules share code via tsconfig path aliases, no workspace; commands are per module (`pnpm` for `server/`, `client/`; `npm` for `reviewer-core/`, `e2e/`, `mcp/`);
    - `@devdigest/shared` exists in two copies (`server/src/vendor/shared` canonical, `client/src/vendor/shared`): contract changes must list both;
    - migrations are generated, never edited, and do not run on boot;
    - lock files and `server/src/db/migrations/*` are off limits for hand edits;

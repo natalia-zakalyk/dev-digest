@@ -97,7 +97,7 @@ try {
 
   // --- lock files change only via the package manager ------------------------------
   for (const f of diff.files) {
-    const m = /^(server|client|reviewer-core|e2e)\/(pnpm-lock\.yaml|package-lock\.json)$/.exec(f.path);
+    const m = /^(server|client|reviewer-core|e2e|mcp)\/(pnpm-lock\.yaml|package-lock\.json)$/.exec(f.path);
     if (m && !diff.files.some((g) => g.path === `${m[1]}/package.json`)) {
       findings.push(finding('lockfile', 'CRITICAL', 'bug', f.path, 1, 'Lock file changed without package.json',
         'Lock files change only through the package manager when a dependency change was asked for (AGENTS.md → Do not touch).', `Revert ${f.path}, or make the dependency change with the package manager.`));

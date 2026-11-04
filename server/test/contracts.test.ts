@@ -4,6 +4,7 @@ import {
   Finding,
   Intent,
   BlastRadius,
+  BlastRadiusResponse,
   Risks,
   PrHistory,
   SmartDiff,
@@ -118,6 +119,50 @@ describe('AI contracts parse fixtures', () => {
     expect(d.groups[0]!.role).toBe('core');
     expect(SmartDiffRole.parse('tests')).toBe('tests');
     expect(SmartDiffRole.parse('docs')).toBe('docs');
+  });
+
+  it('BlastRadiusResponse (GET /pulls/:id/blast)', () => {
+    const ok = BlastRadiusResponse.parse({
+      changed_symbols: [{ name: 'rateLimit', file: 'src/lib/rate-limit.ts', kind: 'function' }],
+      downstream: [
+        {
+          symbol: 'rateLimit',
+          callers: [{ name: 'listItems', file: 'src/api/items.ts', line: 12 }],
+          endpoints_affected: ['GET /api/public/items'],
+          crons_affected: ['0 * * * *'],
+        },
+      ],
+      summary: '1 symbol changed · 1 caller · 1 endpoint · 1 cron',
+      counts: { symbols: 1, callers: 1, endpoints: 1, crons: 1 },
+      degraded: false,
+    });
+    expect(ok.reason).toBeUndefined();
+    // BlastRadius itself stays unchanged: it still parses without the new fields.
+    expect(() => BlastRadius.parse({ changed_symbols: [], downstream: [], summary: '' })).not.toThrow();
+    expect(
+      BlastRadiusResponse.parse({
+        changed_symbols: [],
+        downstream: [],
+        summary: '',
+        counts: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+        degraded: true,
+        reason: 'index_partial',
+      }).reason,
+    ).toBe('index_partial');
+    // Invalid: unknown reason, missing counts.
+    expect(() =>
+      BlastRadiusResponse.parse({
+        changed_symbols: [],
+        downstream: [],
+        summary: '',
+        counts: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+        degraded: true,
+        reason: 'nope',
+      }),
+    ).toThrow();
+    expect(() =>
+      BlastRadiusResponse.parse({ changed_symbols: [], downstream: [], summary: '', degraded: false }),
+    ).toThrow();
   });
 
   it('Conformance / Onboarding / EvalRun / MemoryItem', () => {

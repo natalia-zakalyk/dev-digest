@@ -52,6 +52,11 @@
       "skills": ["onion-architecture", "typescript-expert"]
     },
     {
+      "name": "mcp server",
+      "globs": ["mcp/src/**/*.ts", "mcp/test/**/*.ts"],
+      "skills": ["typescript-expert", "zod", "security"]
+    },
+    {
       "name": "contracts",
       "globs": ["**/vendor/shared/**/*.ts", "**/contracts/**/*.ts"],
       "skills": ["zod", "typescript-expert"]
@@ -110,6 +115,14 @@
       "src": ["reviewer-core/src/**/*.ts"],
       "srcExclude": [],
       "tests": ["reviewer-core/test/**", "reviewer-core/**/*.test.ts"],
+      "pm": "npm",
+      "typecheck": "npm run typecheck",
+      "test": "npm test"
+    },
+    "mcp": {
+      "src": ["mcp/src/**/*.ts"],
+      "srcExclude": [],
+      "tests": ["mcp/test/**", "mcp/**/*.test.ts"],
       "pm": "npm",
       "typecheck": "npm run typecheck",
       "test": "npm test"

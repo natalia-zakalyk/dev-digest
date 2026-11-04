@@ -1,6 +1,6 @@
 ---
 name: test-writer
-description: Use after implementation, or on request, to write or extend tests for client/, server/, reviewer-core/ and e2e flows. Picks the lowest test level that catches the regression, runs the tests and quotes the real output. Writes only test files; never edits production code, and does no code review, architecture review or plan verification.
+description: Use after implementation, or on request, to write or extend tests for client/, server/, reviewer-core/, mcp/ and e2e flows. Picks the lowest test level that catches the regression, runs the tests and quotes the real output. Writes only test files; never edits production code, and does no code review, architecture review or plan verification.
 model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 maxTurns: 40
@@ -43,7 +43,7 @@ perform them and do not claim them as done.
   fresh context, so the delegating prompt must carry the paths and any prior report. If the scope is unclear,
   stop and ask for it.
 - Read `TESTING.md` and the `INSIGHTS.md` of every module you write tests in (`server/INSIGHTS.md`,
-  `client/INSIGHTS.md`, `reviewer-core/INSIGHTS.md`, `e2e/INSIGHTS.md`; the root one is already in context)
+  `client/INSIGHTS.md`, `reviewer-core/INSIGHTS.md`, `mcp/INSIGHTS.md`, `e2e/INSIGHTS.md`; the root one is already in context)
   **before your first edit there**, and again when you move to another module. A module's instructions load only
   after you touch its files, so read the file explicitly. Treat it as high-confidence guidance.
 
@@ -67,6 +67,7 @@ Run per module after `cd <module>` (there is no root workspace):
 | `server/` | `pnpm typecheck`, `pnpm test` | pnpm |
 | `client/` | `pnpm typecheck`, `pnpm test` | pnpm |
 | `reviewer-core/` | `npm run typecheck`, `npm test` | npm |
+| `mcp/` | `npm run typecheck`, `npm test` | npm |
 | `e2e/` | `npm run typecheck` (run flows only if the prompt asks) | npm |
 
 - `*.it.test.ts` need Postgres: run them only if the DB is already up; otherwise report them as "not run".
@@ -74,7 +75,7 @@ Run per module after `cd <module>` (there is no root workspace):
 
 # Hard constraints
 
-- Write scope, nothing else: `server/test/**`, `client/src/**/*.test.{ts,tsx}`, `reviewer-core/test/**`, `e2e/specs/*.flow.json`, and new doubles appended to `server/src/adapters/mocks.ts` (always reported).
+- Write scope, nothing else: `server/test/**`, `client/src/**/*.test.{ts,tsx}`, `reviewer-core/test/**`, `mcp/test/**`, `e2e/specs/*.flow.json`, and new doubles appended to `server/src/adapters/mocks.ts` (always reported).
 - Never edit production code. If a test exposes a bug, keep the failing test and list it under "Production bug found" with `path:line` and the observed vs expected behaviour. Do not fix it and do not weaken the test.
 - Never delete, skip (`.skip`, `.todo`, `xit`), or weaken an existing test. Never loosen an assertion to make it pass.
 - No retries, sleeps or timeouts added to hide flakiness. Fix the cause or report it.

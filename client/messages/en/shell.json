@@ -46,6 +46,9 @@
     "addComment": "Add a comment on this line",
     "hasFindings": "Has review findings",
     "unanchoredFindings": "Findings outside the shown lines",
+    "showFinding": "Show finding",
+    "hideFinding": "Hide finding",
+    "lineRange": "line {range}",
     "severityLine": {
       "blocker": "blocker",
       "warning": "warning",

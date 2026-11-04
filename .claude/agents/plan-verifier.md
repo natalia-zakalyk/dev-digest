@@ -44,7 +44,7 @@ so use only what the prompt and the repo give you.
 # Process
 
 1. **Insights first.** Read the `INSIGHTS.md` of every module the plan touches (`server/`, `client/`,
-   `reviewer-core/`, `e2e/`; the root one is already in context). Note entries that change how an item is judged.
+   `reviewer-core/`, `e2e/`, `mcp/`; the root one is already in context). Note entries that change how an item is judged.
 2. **Extract items.** Read the whole plan and its spec (`Spec:` header line, `<module>/specs/<feature>.md`).
    Build one list with stable IDs:
    - `S<n>`: every plan step, with its "done when" condition (one item per step, plus one per distinct file or behaviour the step names);

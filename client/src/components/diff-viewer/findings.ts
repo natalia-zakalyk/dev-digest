@@ -8,14 +8,23 @@ import { SEVERITY_LINE_LABEL, SEVERITY_RANK } from "./constants";
 
 export type LineSeverity = keyof typeof SEVERITY_LINE_LABEL;
 
+/** Context the viewer hands to `renderFinding`. */
+export interface RenderFindingCtx {
+  /** Close the card; given only for cards that have a line label to reopen them. */
+  onClose?: () => void;
+}
+
 /** What the viewer needs to show findings inside the diff. */
 export interface DiffFindingApi {
   /** Findings per file path. */
   byPath: ReadonlyMap<string, FindingRecord[]>;
   /** Hide finding cards, bars and labels (default: shown). The file-card dot stays. */
   showFindings?: boolean;
-  /** Must return a real component element (`<DiffFinding …/>`), never an inline JSX tree. */
-  renderFinding: (f: FindingRecord) => ReactNode;
+  /**
+   * Must return a real component element (`<DiffFinding …/>`), never an inline JSX tree.
+   * `onClose` is given for cards that have a line label to reopen them; the card shows its X only then.
+   */
+  renderFinding: (f: FindingRecord, ctx?: RenderFindingCtx) => ReactNode;
 }
 
 /** Findings are anchored to the new-file (RIGHT) side at `start_line`. */

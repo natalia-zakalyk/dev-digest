@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   globToRegExp, fingerprint, worktreeChanges, worktreeBlobs, commitChanges, commitBlobs, touchedPaths,
-  gateBlockers, mergeBase,
+  gateBlockers, mergeBase, moduleOf,
 } from './lib.mjs';
 import { dismissalHints } from './report-format.mjs';
 import { dedupe } from './write-report.mjs';
@@ -66,6 +66,11 @@ test('globToRegExp handles **, *, braces', () => {
   assert.ok(globToRegExp('**/*.md').test('README.md'));
   assert.ok(globToRegExp('**/vendor/shared/**').test('server/src/vendor/shared/x.ts'));
   assert.ok(!globToRegExp('server/*.ts').test('server/src/x.ts'));
+});
+
+test('moduleOf classifies every package folder, everything else is root', () => {
+  for (const m of ['server', 'client', 'reviewer-core', 'e2e', 'mcp']) assert.equal(moduleOf(`${m}/src/a.ts`), m);
+  assert.equal(moduleOf('scripts/verify.sh'), 'root');
 });
 
 test('fingerprint: same before and after commit, changes after an edit; handles rename/untracked/delete', () => {
